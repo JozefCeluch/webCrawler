@@ -53,7 +53,9 @@ int initialize_curl(CURL *curl, char* url, struct htmlData* chunk,
 		curl_error(err);
 		err = curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
 		curl_error(err);
-		err = curl_easy_setopt(curl, CURLOPT_USERAGENT, "httpConnect");
+		err = curl_easy_setopt(curl, CURLOPT_USERAGENT, "webCrawler");
+		curl_error(err);
+		err = curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
 		curl_error(err);
 		err = curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, error_buffer);
 		curl_error(err);
@@ -67,7 +69,7 @@ int initialize_curl(CURL *curl, char* url, struct htmlData* chunk,
 		curl_error(err);
 		err = curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)chunk);
 		curl_error(err);
-		err = curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 0L); // 0 = no redirs
+		err = curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 1L); // 0 = no redirects
 		curl_error(err);
 //		curl_error(curl_easy_setopt(curl, CURLOPT_VERBOSE, 1)); // info about curl operations
 		curl_error(curl_easy_perform(curl));
@@ -84,11 +86,11 @@ int initialize_curl(CURL *curl, char* url, struct htmlData* chunk,
 			printf("Page not downloaded, status code: %ld\n",
 					response_code);
 			printf("%s\n", error_buffer);
-			return 1;
+			return -2;
 		}
 	}
 	printf("Curl init error\n");
 	curl_easy_cleanup(curl);
-	return 1;
+	return -1;
 }
 
