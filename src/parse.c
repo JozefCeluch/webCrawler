@@ -4,7 +4,7 @@ int compile_regex(pcre **re, char *regex)
 {
 	if (regex == NULL) {
 		fprintf(stderr, "compile_regex parameter FAIL\n");
-		return 1;
+		return -1;
 	}
 
 	const char *error;
@@ -19,7 +19,7 @@ int compile_regex(pcre **re, char *regex)
 	if (*re == NULL) {
 		printf("PCRE compilation failed at offset %d: %s\n",
 				erroffset, error);
-		return 1;
+		return -2;
 	}
 
 	return 0;
@@ -87,17 +87,18 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse)
 	/* DFS */
 	printf("Parsing url\n");
 	while (cur_node != NULL) {
-		//		if (cur_node->name) printf("%s\n", cur_node->name);
 		if (process) {
-			/* check only "pre" elements*/
-			if (cur_node->name && !strcmp((char *) cur_node->name,
-					"pre")) {
-				key = xmlNodeListGetString(
-						cur_node->children->doc,
-						cur_node->children, 1);
+			/* to check only "pre" elements add '&& !strcmp((char *) cur_node->name, "pre")'*/
+			if (cur_node->name ) {
+				if (cur_node->children) {
+					key = xmlNodeListGetString(
+							cur_node->children->doc,
+							cur_node->children, 1);
+				}
 				if (key) {
 					found += bug_warning_match((char*) key, parse);
 					xmlFree(key);
+					key = NULL;
 				}
 			}
 		}
@@ -113,9 +114,9 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse)
 		}
 	}
 	if (found) {
-		printf("Element found, parsing successfull\n");
+		printf("Data found, parsing successfull\n");
 	} else {
-		printf("Element not found\n");
+		printf("Data not found\n");
 	}
 	return found;
 }
@@ -187,10 +188,10 @@ int print_regex_result(char *string, int stat1, int *ovector1, int stat2,
 		pcre_free_substring(ver);
 		pcre_free_substring(line);
 		free(vector);
-		return 1;
+		return 0;
 	} else {
 		//		printf("No match\n");
-		return 0;
+		return -1;
 	}
 
 }
