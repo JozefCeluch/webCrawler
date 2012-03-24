@@ -20,7 +20,7 @@
 */
 #define OVECCOUNT 15
 
-/*! \def URL_SIZE 70
+/*! \def URL_SIZE 120
     \brief Length of url.
 
 */
