@@ -83,7 +83,9 @@ int convert_html(struct htmlData *chunk, htmlParserCtxtPtr *parser);
     \brief Crawls the XML tree, looking for "pre" elements.
     \param root_node Root node of XML tree.
     \param parse Structure containing all parsing information.
-    \return Number of found matches
+    \return -1 No match found.
+    \return 0 All matches found are already in the database.
+    \return >0 Number of new items inserted to database.
  */
 int parse_xml(xmlNodePtr root_node, struct parsingData *parse);
 
@@ -91,7 +93,10 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse);
     \brief Runs both regexes on the string.
     \param string String to match regular expressions against.
     \param data Structure containing parsing information.
-    \return Number of matches found in string.
+    \return -2 Error.
+    \return -1 No match found.
+    \return 0 Item is already in the database.
+    \return 1 New item added into the database.
  */
 int bug_warning_match(char* string, struct parsingData *data);
 
@@ -104,7 +109,9 @@ int bug_warning_match(char* string, struct parsingData *data);
    \param stat2 Position of second match in ovector
    \param ovector2 Ovector of second regex match
    \param parse Structure containig parsing data
-   \return 0 OK, otherwise -1
+   \return -1 Parameter error.
+   \return 0 Item is already in the database.
+   \return 1 New item added to the database.
  */
 int print_regex_result(char *string, int stat1, int *ovector1, int stat2,
 		int *ovector2, struct parsingData *parse);

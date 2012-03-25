@@ -83,6 +83,8 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse)
 	xmlChar *key = NULL;
 	int found = 0;
 	int process = 1;
+	int match_count = 0;
+	int insert_count = 0;
 
 	/* DFS */
 	printf("Parsing url\n");
@@ -96,9 +98,23 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse)
 							cur_node->children, 1);
 				}
 				if (key) {
-					found += bug_warning_match((char*) key, parse);
+					found = bug_warning_match((char*) key,
+							parse);
 					xmlFree(key);
 					key = NULL;
+					switch (found) {
+					case 0:
+						// match found, but not inserted into db
+						match_count++;
+						break;
+					case 1:
+						// match found and inserted into db
+						insert_count++;
+						break;
+					default:
+						// no match, or other error
+						break;
+					}
 				}
 			}
 		}
@@ -113,26 +129,31 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse)
 			process = 0;
 		}
 	}
-	if (found) {
-		printf("Data found, parsing successfull\n");
+
+	if (insert_count) {
+		printf("New data found and inserted into database\n");
+		return insert_count;
+	} else if (match_count) {
+		printf("Data found, already in database\n");
+		return 0;
 	} else {
 		printf("Data not found\n");
+		return -1;
 	}
-	return found;
 }
 
 int bug_warning_match(char* string, struct parsingData *data)
 {
 	if (string == NULL) {
 		fprintf(stderr, " ");
-		return 1;
+		return -2; // error
 	}
 
 	int res1 = 0;
 	int res2 = 0;
 	int *ovector1;
 	int *ovector2;
-	int result = 0;
+	int ret_val = -1; // default value, meaning nothing was found
 	//	int i = 0;
 	ovector1 = malloc(sizeof(int) * OVECCOUNT);
 	ovector2 = malloc(sizeof(int) * OVECCOUNT);
@@ -141,14 +162,14 @@ int bug_warning_match(char* string, struct parsingData *data)
 	res2 = match_regex(string, data->re_pid, &ovector2);
 
 	if (res1 > 0 && res2 > 0) { // both regular expressions found something
-		print_regex_result(string, res1, ovector1, res2, ovector2, data);
-		result = res1 + res2;
+		ret_val = print_regex_result(string, res1, ovector1, res2, ovector2, data);
+//		result = res1 + res2;
 	}
 
 	free(ovector1);
 	free(ovector2);
 
-	return result;
+	return ret_val; // success: 0 already in db, 1 new db entry inserted
 }
 
 int print_regex_result(char *string, int stat1, int *ovector1, int stat2,
@@ -161,6 +182,7 @@ int print_regex_result(char *string, int stat1, int *ovector1, int stat2,
 		int src_offset = 0;
 		int src_len = ovector1[3] - ovector1[2];
 		int *vector = malloc(sizeof(int) * OVECCOUNT);
+		int ret_val = 0;
 
 		pcre_get_substring(string, ovector1, stat1, 1, &src);
 		pcre_get_substring(string, ovector1, stat1, 2, &line);
@@ -183,15 +205,14 @@ int print_regex_result(char *string, int stat1, int *ovector1, int stat2,
 		parse->database.loc_line = line;
 		parse->database.project_ver = ver;
 		printf("\t%s %s:%s\n", ver, src + src_offset, line);
-		insert_to_db(&parse->sql.db, &parse->sql, &parse->database);
+		ret_val = insert_to_db(&parse->sql.db, &parse->sql, &parse->database);
 		pcre_free_substring(src);
 		pcre_free_substring(ver);
 		pcre_free_substring(line);
 		free(vector);
-		return 0;
+		return ret_val; // success: 0 already in db, 1 new db entry inserted
 	} else {
-		//		printf("No match\n");
-		return -1;
+		return -1; // error
 	}
 
 }
