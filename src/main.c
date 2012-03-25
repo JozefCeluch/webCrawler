@@ -1,10 +1,9 @@
 #include <errno.h>
 #include "network.h"
-#include "../config.h"
 
 void die(const char *error)
 {
-	fprintf(stderr, "httpConnect: %s\n", error);
+	fprintf(stderr, "webCrawler: %s\n", error);
 	exit(EXIT_FAILURE);
 }
 
@@ -25,8 +24,16 @@ char *read_line(FILE *url_file)
 }
 
 /*
+ * QUESTION
+ * co robit, ak v samotnom texte commentu nie su obidva udaje, ale je v nom prilozeny kompletny log ako attachment?
+ * napr.:
+ * https://bugzilla.novell.com/show_bug.cgi?id=551948
+ * https://bugzilla.novell.com/show_bug.cgi?id=599628
+ */
+
+/*
  * TODO fix return values of all functions
- * 0 OK, >0 amount/success message, etc., <0 error
+ * 0 OK; >0 amount/success message, etc.; <0 error
  */
 
 int main(int argc, char *argv[])
@@ -39,6 +46,7 @@ int main(int argc, char *argv[])
 	int failed_dwnld_count = 0;
 	int failed_regex_count = 0;
 	int success_regex_count = 0;
+	int success_db_insert = 0;
 
 	char* file_name = NULL;
 	char error_buffer[CURL_ERROR_SIZE];
@@ -87,6 +95,7 @@ int main(int argc, char *argv[])
 		chunk.page = NULL;
 		chunk.size = 0;
 		++url_count;
+//		data.database.url = "https://bugzilla.novell.com/show_bug.cgi?id=648118";
 		printf("%d. Fetching %s\n", url_count, data.database.url);
 		match_count = 0;
 
@@ -95,12 +104,17 @@ int main(int argc, char *argv[])
 			convert_html(&chunk, &parser);
 			if (parser) {
 				match_count = parse_xml(xmlDocGetRootElement(parser->myDoc), &data);
+				if (match_count == -1) {
+					++failed_regex_count;
+					fprintf(regex_failed, "%s\n",
+							data.database.url);
+				} else if (match_count == 0) {
+					++success_regex_count;
+				} else {
+					success_db_insert += match_count;
+					++success_regex_count;
+				}
 			}
-			if (match_count == 0) {
-				++failed_regex_count;
-				fprintf(regex_failed, "%s\n", data.database.url);
-			} else
-				++success_regex_count;
 			xmlFreeDoc(parser->myDoc);
 			htmlFreeParserCtxt(parser);
 			free(chunk.page);
@@ -111,8 +125,9 @@ int main(int argc, char *argv[])
 		}
 		free(data.database.url);
 	}
-	printf("\nALL URLs:\t\t%d\nSUCCESSFUL MATCH:\t%d\nFAILED DOWNLOAD:\t%d\nFAILED REGEX:\t\t%d\n", url_count,
-			success_regex_count, failed_dwnld_count, failed_regex_count);
+	printf("\nALL URLs:\t\t%d\nSUCCESSFUL MATCH:\t%d\nNEW DB ENTRIES:\t\t%d\
+			\nFAILED DOWNLOAD:\t%d\nFAILED REGEX:\t\t%d\n", url_count,
+			success_regex_count, success_db_insert, failed_dwnld_count, failed_regex_count);
 
 	xmlCleanupParser();
 	fclose(fd);
