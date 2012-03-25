@@ -46,10 +46,10 @@ void sql_init(struct sqlStmt *data, struct db *database){
 	}
 }
 
-void insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database){
+int insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database){
 
 	int rc = 0;
-	sqlite3_int64 err_id;
+	sqlite3_int64 rowid;
 
 	rc = check_duplicates(data->sql_select, database->error_type_id,
 			database->proj_id, database->project_ver, database->loc_file, database->loc_line);
@@ -60,15 +60,25 @@ void insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database){
 				database->loc_file, database->loc_line, database->url);
 		if (rc != SQLITE_DONE) {
 			fprintf(stderr, "SQL insert error: %d: :%s\n", rc, sqlite3_errmsg(*db));
+			return -1; // error
 		}
 
-		err_id = sqlite3_last_insert_rowid(*db);
-		printf("%lld\n", err_id);
+		rowid = sqlite3_last_insert_rowid(*db);
+		if (rowid == 0){
+			fprintf(stderr, "SQL last_insert_rowid failed\n");
+			return -1;
+		}
+		printf("row ID: %lld\n", rowid);
 
-		rc = insert_tool_rel(data->sql_rel, database->tool_id, err_id);
+		rc = insert_tool_rel(data->sql_rel, database->tool_id, rowid);
 		if (rc != SQLITE_DONE) {
 			fprintf(stderr, "SQL insert tool_rel error: %d: :%s\n", rc, sqlite3_errmsg(*db));
+			return -1;
 		}
+
+		return 1; // successfully inserted
+	} else {
+		return 0; // same data already in the database
 	}
 }
 

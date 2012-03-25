@@ -57,9 +57,12 @@ void sql_init(struct sqlStmt *data, struct db *database);
     \param db Pointer to initialized database connection.
     \param data Structure containing compiled sql statements.
     \param database Structure containing data to be inserted into database.
-    TODO: add error checking, return values, change param names to st more sensible
+
+    \return -1 error
+    \return 0 item already in database
+    \return 1 new item inserted into database
 */
-void insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database);
+int insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database);
 
 /*! \fn int get_id (sqlite3 *db, char *table, char *column, char* value)
     \brief Returns id of column with value from table.
