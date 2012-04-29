@@ -15,7 +15,6 @@ size_t write_call_back(void *ptr, size_t size, size_t nmemb, void *data)
 	struct htmlData *memory = (struct htmlData *) data;
 	memory->page = (char *) realloc(memory->page, memory->size + real_size
 			+ 1);
-
 	if (memory->page) {
 		memcpy(&(memory->page[memory->size]), ptr, real_size);
 		memory->size += real_size;
@@ -40,15 +39,20 @@ size_t write_call_back(void *ptr, size_t size, size_t nmemb, void *data)
 //}
 
 int initialize_curl(CURL *curl, char* url, struct htmlData* chunk,
-		char* error_buffer)
+		char* error_buffer, char* post)
 {
 	long response_code = 0;
 	CURLcode err;
 //	double content_size = 0;
 
 	curl = curl_easy_init();
-
 	if (curl) {
+		if (post != NULL){
+			err = curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post);
+			curl_error(err);
+			err = curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)strlen(post));
+			curl_error(err);
+		}
 		err = curl_easy_setopt(curl, CURLOPT_URL, url);
 		curl_error(err);
 		err = curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
@@ -61,7 +65,7 @@ int initialize_curl(CURL *curl, char* url, struct htmlData* chunk,
 		curl_error(err);
 		err = curl_easy_setopt(curl, CURLOPT_CAPATH, "/etc/ssl/certs");
 		curl_error(err);
-		err = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+		err = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
 		curl_error(err);
 		err = curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
 		curl_error(err);
@@ -78,7 +82,7 @@ int initialize_curl(CURL *curl, char* url, struct htmlData* chunk,
 //		curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &content_size);
 
 		curl_easy_cleanup(curl);
-
+		curl = NULL;
 		if (response_code == 200) {
 			printf("Download OK\n");
 			return 0;
@@ -91,6 +95,7 @@ int initialize_curl(CURL *curl, char* url, struct htmlData* chunk,
 	}
 	printf("Curl init error\n");
 	curl_easy_cleanup(curl);
+	curl = NULL;
 	return -1;
 }
 

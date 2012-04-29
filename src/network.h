@@ -38,6 +38,6 @@ size_t write_call_back(void *ptr, size_t size, size_t nmemb, void *data);
     \return -2 Connection error
  */
 int initialize_curl(CURL *curl, char* url, struct htmlData* chunk,
-		char* error_buffer);
+		char* error_buffer, char* post);
 
 #endif /* NETWORK_H_ */
