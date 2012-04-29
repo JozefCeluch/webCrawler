@@ -24,7 +24,7 @@
     \brief Length of url.
 
 */
-#define URL_SIZE 120
+#define URL_SIZE 250
 
 /*! \struct htmlData
     \brief Contains data and size downloaded by CURL library.
