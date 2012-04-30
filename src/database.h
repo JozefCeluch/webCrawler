@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <sqlite3.h>
 
+#define TOOL_NAME "Web Crawler"
+#define TOOL_VERSION "0.1"
+#define DEST_PROJECT "Linux Kernel"
 /*! \def MAX_SQL_STMT_LEN 120
     \brief Maximum length of sql statement
 */
