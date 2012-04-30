@@ -17,7 +17,7 @@ int compile_regex(pcre **re, char *regex)
 	NULL); /* use default character tables */
 
 	if (*re == NULL) {
-		printf("PCRE compilation failed at offset %d: %s\n",
+		fprintf(stderr, "PCRE compilation failed at offset %d: %s\n",
 				erroffset, error);
 		return -2;
 	}
@@ -28,7 +28,7 @@ int compile_regex(pcre **re, char *regex)
 int match_regex(char *string, pcre *re, int **ovector)
 {
 	if (string == NULL || re == NULL) {
-		printf("match_regex parameter FAIL\n");
+		fprintf(stderr, "match_regex parameter FAIL\n");
 		return 1;
 	}
 
@@ -87,7 +87,7 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse)
 	int insert_count = 0;
 
 	/* DFS */
-	printf("Parsing url\n");
+	fprintf(stderr, "Parsing url\n");
 	while (cur_node != NULL) {
 		if (process) {
 			/* to check only "pre" elements add '&& !strcmp((char *) cur_node->name, "pre")'*/
@@ -131,13 +131,13 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse)
 	}
 
 	if (insert_count) {
-		printf("New data found and inserted into database\n");
+		fprintf(stderr, "New data found and inserted into database\n");
 		return insert_count;
 	} else if (match_count) {
-		printf("Data found, already in database\n");
+		fprintf(stderr, "Data found, already in database\n");
 		return 0;
 	} else {
-		printf("Data not found\n");
+		fprintf(stderr, "Data not found\n");
 		return -1;
 	}
 }
@@ -145,7 +145,7 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse)
 int bug_warning_match(char* string, struct parsingData *data)
 {
 	if (string == NULL) {
-		fprintf(stderr, " ");
+		fprintf(stderr, "Empty string");
 		return -2; // error
 	}
 
@@ -204,7 +204,7 @@ int print_regex_result(char *string, int stat1, int *ovector1, int stat2,
 		parse->database.loc_file = src + src_offset;
 		parse->database.loc_line = line;
 		parse->database.project_ver = ver;
-		printf("\t%s %s:%s\n", ver, src + src_offset, line);
+		fprintf(stderr, "\t%s %s:%s\n", ver, src + src_offset, line);
 		ret_val = insert_to_db(&parse->sql.db, &parse->sql, &parse->database);
 		pcre_free_substring(src);
 		pcre_free_substring(ver);

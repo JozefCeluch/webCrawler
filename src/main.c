@@ -287,9 +287,8 @@ int main(int argc, char *argv[])
 	//
 	spider_id = argv[1];
 	fd = fopen(spider_id, "rb");
-
 	if (fd == NULL) {
-		die("Error, creating file");
+		die("Error, opening file");
 	}
 
 //	scrapy_run_spider("bugzilla", &spider_id);
@@ -320,7 +319,7 @@ int main(int argc, char *argv[])
 		chunk.size = 0;
 		++url_count;
 		//		data.database.url = "https://bugzilla.novell.com/show_bug.cgi?id=648118";
-		printf("%d. Fetching %s\n", url_count, data.database.url);
+		fprintf(stderr,"%d. Fetching %s\n", url_count, data.database.url);
 		match_count = 0;
 
 		if (!initialize_curl(&curl, data.database.url, &chunk,
@@ -347,18 +346,17 @@ int main(int argc, char *argv[])
 			free(chunk.page);
 			chunk.size = 0;
 		} else {
-			printf("Download failed\n");
+			fprintf(stderr,"Download failed\n");
 			++failed_dwnld_count;
 			fprintf(download_failed, "%s\n", data.database.url);
 		}
 		free(data.database.url);
 	}
-	printf(
-			"\nALL URLs:\t\t%d\nSUCCESSFUL MATCH:\t%d\nNEW DB ENTRIES:\t\t%d\
-			\nFAILED DOWNLOAD:\t%d\nFAILED REGEX:\t\t%d\n",
-			url_count, success_regex_count, success_db_insert,
-			failed_dwnld_count, failed_regex_count);
-
+	fprintf(stderr,"NEW DB ENTRIES:\t\t%d\n", success_db_insert);
+	fprintf(stderr,"SUCCESSFUL MATCH:\t%d\n", success_regex_count);
+	fprintf(stderr,"FAILED REGEX:\t\t%d\n", failed_regex_count);
+	fprintf(stderr,"FAILED DOWNLOAD:\t%d\n", failed_dwnld_count);
+	fprintf(stderr,"ALL URLs:\t\t%d\n", url_count);
 	xmlCleanupParser();
 	if (fd)
 		fclose(fd);

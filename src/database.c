@@ -18,9 +18,9 @@ void sql_init(struct sqlStmt *data, struct db *database){
 //		return 1;
 	}
 
-	database->tool_name = "Web Crawler";
-	database->tool_ver = "0.1";
-	database->dest_proj = "Linux Kernel";
+	database->tool_name = TOOL_NAME;
+	database->tool_ver = TOOL_VERSION;
+	database->dest_proj = DEST_PROJECT;
 	database->error_type = "BUG/WARNING";
 	database->user = "jirislaby";
 	database->tool_id = get_id(data->db, "tool", "name", database->tool_name);
@@ -68,7 +68,7 @@ int insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database){
 			fprintf(stderr, "SQL last_insert_rowid failed\n");
 			return -1;
 		}
-		printf("row ID: %lld\n", rowid);
+		fprintf(stderr, "row ID: %lld\n", rowid);
 
 		rc = insert_tool_rel(data->sql_rel, database->tool_id, rowid);
 		if (rc != SQLITE_DONE) {

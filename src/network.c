@@ -84,16 +84,16 @@ int initialize_curl(CURL *curl, char* url, struct htmlData* chunk,
 		curl_easy_cleanup(curl);
 		curl = NULL;
 		if (response_code == 200) {
-			printf("Download OK\n");
+			fprintf(stderr, "Download OK\n");
 			return 0;
 		} else {
-			printf("Page not downloaded, status code: %ld\n",
+			fprintf(stderr, "Page not downloaded, status code: %ld\n",
 					response_code);
-			printf("%s\n", error_buffer);
+			fprintf(stderr, "%s\n", error_buffer);
 			return -2;
 		}
 	}
-	printf("Curl init error\n");
+	fprintf(stderr, "Curl init error\n");
 	curl_easy_cleanup(curl);
 	curl = NULL;
 	return -1;
