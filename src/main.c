@@ -256,11 +256,35 @@ int main(int argc, char *argv[])
 	char error_buffer[CURL_ERROR_SIZE];
 	htmlParserCtxtPtr parser = NULL;
 	int match_count;
+	char *db_name = NULL;
 
 	struct htmlData chunk;
 	struct parsingData data;
+	int opt = 0;
+	if (argc < 2) {
+		fprintf(stderr, "Usage: %s [-d database] [-f input_file] [-u username] \n",
+							argv[0]);
+		return 1;
+	}
+	while ((opt = getopt(argc, argv, "u:d:f:")) != -1) {
+		switch (opt) {
+		case 'd':
+			db_name = optarg;
+			break;
+		case 'u':
+			data.database.user = optarg;
+			break;
+		case 'f':
+			file_name = optarg;
+			break;
+		default: /* '?' */
+			fprintf(stderr, "Usage: %s [-d database] [-f input_file] [-u username] \n",
+					argv[0]);
+			exit(EXIT_FAILURE);
+		}
+	}
 
-	sql_init(&data.sql, &data.database);
+	sql_init(&data.sql, &data.database, db_name);
 	LIBXML_TEST_VERSION;
 
 	char *regex_path =
@@ -270,8 +294,6 @@ int main(int argc, char *argv[])
 	char
 			*regex_pid =
 					"Pid:\\s+[0-9]+,\\s+comm:\\s+.{1,20}\\s+(?:Not\\s+tainted|Tainted:\\s+[A-Z ]+)\\s+\\(?([0-9.-]+\\S+)\\s+#";
-
-	char *spider_id; //= malloc(sizeof(char) * 40);
 
 	compile_regex(&data.re_bug, regex_part1);
 	compile_regex(&data.re_pid, regex_pid);
@@ -285,16 +307,15 @@ int main(int argc, char *argv[])
 	//		file_name = "bnc-bug-at.txt";
 	//	}
 	//
-	spider_id = argv[1];
-	fd = fopen(spider_id, "rb");
+	fd = fopen(file_name, "rb");
 	if (fd == NULL) {
 		die("Error, opening file");
 	}
 
 //	scrapy_run_spider("bugzilla", &spider_id);
 //	printf("%s : length = %d\n", spider_id, strlen(spider_id));
-	char *ast = "{\"url\": \"http://www.at91.com/forum/viewtopic.php/f,12/t,20179/\", \"date\": null, \"length\": 53, \"num\": 78}";
-	char *a = NULL;
+//	char *ast = "{\"url\": \"http://www.at91.com/forum/viewtopic.php/f,12/t,20179/\", \"date\": null, \"length\": 53, \"num\": 78}";
+//	char *a = NULL;
 //	get_list_value(ast, "url", &a);
 //	return 0;
 //	scrapy_get_urls(spider_id, fd);
@@ -352,6 +373,7 @@ int main(int argc, char *argv[])
 		}
 		free(data.database.url);
 	}
+	fprintf(stderr,"FINISHED\n");
 	fprintf(stderr,"NEW DB ENTRIES:\t\t%d\n", success_db_insert);
 	fprintf(stderr,"SUCCESSFUL MATCH:\t%d\n", success_regex_count);
 	fprintf(stderr,"FAILED REGEX:\t\t%d\n", failed_regex_count);
