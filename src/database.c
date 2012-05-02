@@ -1,6 +1,6 @@
 #include "database.h"
 
-void sql_init(struct sqlStmt *data, struct db *database){
+int sql_init(struct sqlStmt *data, struct db *database, char *db_file){
 	const char *tail = 0;
 	int rc;
 	char *err_stmt =
@@ -11,18 +11,18 @@ void sql_init(struct sqlStmt *data, struct db *database){
 		"SELECT * FROM error\
 		WHERE error_type=? AND project=? AND project_version=? AND loc_file = ? AND loc_line=?;";
 
-	rc = sqlite3_open("database.db", &data->db);
+	rc = sqlite3_open(db_file, &data->db);
 	if(rc){
 		fprintf(stderr, "Can not open database: %s\n", sqlite3_errmsg(data->db));
 		sqlite3_close(data->db);
-//		return 1;
+		return -1;
 	}
 
 	database->tool_name = TOOL_NAME;
 	database->tool_ver = TOOL_VERSION;
 	database->dest_proj = DEST_PROJECT;
-	database->error_type = "BUG/WARNING";
-	database->user = "jirislaby";
+	database->error_type = ERR_TYPE;
+//	database->user = "jirislaby";
 	database->tool_id = get_id(data->db, "tool", "name", database->tool_name);
 	database->user_id = get_id(data->db, "user", "login", database->user);
 	database->error_type_id = get_id(data->db, "error_type", "name", database->error_type);
@@ -35,15 +35,19 @@ void sql_init(struct sqlStmt *data, struct db *database){
 	rc = sqlite3_prepare_v2(data->db, err_stmt, -1, &data->sql_err, &tail);
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "SQL error: %d: %s\n", rc, sqlite3_errmsg(data->db));
+		return -1;
 	}
 	rc = sqlite3_prepare_v2(data->db, select_stmt, -1, &data->sql_select, &tail);
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "SQL error: %d: :%s\n", rc, sqlite3_errmsg(data->db));
+		return -1;
 	}
 	rc = sqlite3_prepare_v2(data->db, rel_stmt, -1, &data->sql_rel, &tail);
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "SQL error: %d: :%s\n", rc, sqlite3_errmsg(data->db));
+		return -1;
 	}
+	return 0;
 }
 
 int insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database){

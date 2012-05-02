@@ -9,6 +9,7 @@
 #define TOOL_NAME "Web Crawler"
 #define TOOL_VERSION "0.1"
 #define DEST_PROJECT "Linux Kernel"
+#define ERR_TYPE "BUG/WARNING"
 /*! \def MAX_SQL_STMT_LEN 120
     \brief Maximum length of sql statement
 */
@@ -51,9 +52,11 @@ struct db
     \brief Initializes sql statements.
     \param data Structure containing uninitializes sql statements.
     \param database Uninitialized database connection.
-    TODO: add error checking and return values
+
+    \return -1 error
+    \return 0 OK
 */
-void sql_init(struct sqlStmt *data, struct db *database);
+void sql_init(struct sqlStmt *data, struct db *database, char *db_file);
 
 /*! \fn void insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database)
     \brief Inserts data into the database.
