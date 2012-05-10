@@ -237,9 +237,6 @@ char *read_file(FILE *url_file)
 	}
 }
 
-/*
- * TODO: add debug message macros
- */
 int main(int argc, char *argv[])
 {
 	CURL *curl = NULL;
@@ -291,9 +288,8 @@ int main(int argc, char *argv[])
 			"s|^/usr/src/packages/BUILD/(?:kernel-[a-z]+-[0-9.]+/linux-[0-9.]+/)?||";
 	char *regex_part1 =
 			"(?:WARNING:|kernel\\s+BUG)\\s+at\\s+(\\S+)\\s?:([0-9]+)!?";
-	char
-			*regex_pid =
-					"Pid:\\s+[0-9]+,\\s+comm:\\s+.{1,20}\\s+(?:Not\\s+tainted|Tainted:\\s+[A-Z ]+)\\s+\\(?([0-9.-]+\\S+)\\s+#";
+	char *regex_pid =
+			"Pid:\\s+[0-9]+,\\s+comm:\\s+.{1,20}\\s+(?:Not\\s+tainted|Tainted:\\s+[A-Z ]+)\\s+\\(?([0-9.-]+\\S+)\\s+#";
 
 	compile_regex(&data.re_bug, regex_part1);
 	compile_regex(&data.re_pid, regex_pid);
@@ -339,7 +335,7 @@ int main(int argc, char *argv[])
 		chunk.page = NULL;
 		chunk.size = 0;
 		++url_count;
-		//		data.database.url = "https://bugzilla.novell.com/show_bug.cgi?id=648118";
+//				data.database.url = "https://bugzilla.novell.com/show_bug.cgi?id=648118";
 		fprintf(stderr,"%d. Fetching %s\n", url_count, data.database.url);
 		match_count = 0;
 
@@ -371,14 +367,9 @@ int main(int argc, char *argv[])
 			++failed_dwnld_count;
 			fprintf(download_failed, "%s\n", data.database.url);
 		}
+
 		free(data.database.url);
 	}
-	fprintf(stderr,"FINISHED\n");
-	fprintf(stderr,"NEW DB ENTRIES:\t\t%d\n", success_db_insert);
-	fprintf(stderr,"SUCCESSFUL MATCH:\t%d\n", success_regex_count);
-	fprintf(stderr,"FAILED REGEX:\t\t%d\n", failed_regex_count);
-	fprintf(stderr,"FAILED DOWNLOAD:\t%d\n", failed_dwnld_count);
-	fprintf(stderr,"ALL URLs:\t\t%d\n", url_count);
 	xmlCleanupParser();
 	if (fd)
 		fclose(fd);
@@ -392,5 +383,11 @@ int main(int argc, char *argv[])
 	pcre_free(data.re_pid);
 	pcre_free(data.re_path);
 
+//	printf("FINISHED\n");
+	printf("NEW DB ENTRIES:\t\t%d\n", success_db_insert);
+	printf("SUCCESSFUL MATCH:\t%d\n", success_regex_count);
+	printf("FAILED REGEX:\t\t%d\n", failed_regex_count);
+	printf("FAILED DOWNLOAD:\t%d\n", failed_dwnld_count);
+	printf("ALL URLs:\t\t%d\n", url_count);
 	exit(EXIT_SUCCESS);
 }

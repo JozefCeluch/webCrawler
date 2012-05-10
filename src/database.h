@@ -1,3 +1,8 @@
+/*! \file database.h
+    \brief Header containing database related functions
+
+    Contains definitions and functions that handle communication with database
+ */
 #ifndef DATABASE_H_
 #define DATABASE_H_
 
@@ -56,7 +61,7 @@ struct db
     \return -1 error
     \return 0 OK
 */
-void sql_init(struct sqlStmt *data, struct db *database, char *db_file);
+int sql_init(struct sqlStmt *data, struct db *database, char *db_file);
 
 /*! \fn void insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database)
     \brief Inserts data into the database.

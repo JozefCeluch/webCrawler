@@ -1,8 +1,7 @@
 /*! \file network.h
-    \brief Part of program regarding network communication.
+    \brief Header containing network communication related functions.
 
-    Contains definitions of structures and functions that download
-    data from the Internet.
+    Contains definitions of structures and functions that download data from the Internet.
 */
 #ifndef NETWORK_H_
 #define NETWORK_H_

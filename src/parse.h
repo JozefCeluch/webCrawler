@@ -1,8 +1,7 @@
 /*! \file parse.h
-    \brief Part of program regarding parsing.
+    \brief Header contaning parsing related functions.
 
-    Contains definitions of structures and functions that handle
-    html conversion and parsing
+    Contains definitions of structures and functions that handle html conversion and parsing
 */
 
 #ifndef PARSE_H_
