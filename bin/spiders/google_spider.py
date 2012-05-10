@@ -1,5 +1,3 @@
-
-from scrapy.selector import HtmlXPathSelector
 from scrapy.http import Request
 from scrapy.conf import settings
 from scrapy.spider import BaseSpider
@@ -8,247 +6,324 @@ from scrapy.exceptions import CloseSpider
 
 from copy import copy
 import cPickle as pickle
-import os.path, atexit
-import parsedatetime.parsedatetime as pdt
+
+#nohup prikaz &
+
+import os.path, atexit, errno
+
 from datetime import datetime, date, timedelta
 from urllib import urlencode
-import urlparse
+import urlparse, json
+import logging
+from scrapy.log import ScrapyFileLogObserver
+#date parsing module, not used by default, more info http://code.google.com/p/parsedatetime/
+#import parsedatetime.parsedatetime as pdt
 
-url_params = {
-    'hl':'en',
-    'q':'',
-    'start':'',
-    'tbs':'qdr:0',
-    'num':'100',
-    'filter':'0',
-    'qscrl':'1'
+"""Creates the folder if it doesn't exist already'"""
+FOLDER = './data'
+try:
+    os.mkdir(FOLDER)
+except OSError, e:
+    if e.errno != errno.EEXIST:
+        raise Exception("Can't create directory'")
+
+"""Enables loging into file and to standard output"""
+logfile = open('%s/google.log' %FOLDER, 'a+b')
+log_observer = ScrapyFileLogObserver(logfile, level=logging.DEBUG)
+log_observer.start()
+
+"""Google custom search API query parameters
+Required prameters are:
+cx - custom search engine unique ID
+key - unique API key, provides API access
+q - search query
+other parameters are optional: 
+filter - 0 disables duplicate content filter (default is 1)
+sort - date:a - ascending sort by date
+dateRestrict - w[number] - restrict results to number of weeks
+more info:
+https://developers.google.com/custom-search/v1/using_rest#query-params
+"""
+PARAMS = {
+    'dateRestrict' : 'w0',
+    'filter' : '0',
+    'sort' : 'date:a',
+    'q' : '',
+    'start' : '1', # range between 1 and 91
+    'cx' : '',
+    'key' : '',
 }
 
-settings.overrides['USER_AGENT'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.9 Safari/536.5'
+""" Spider specific settings
+More options can be found at http://doc.scrapy.org/en/latest/topics/settings.html
+
+"""
 settings.overrides['RANDOMIZE_DOWNLOAD_DELAY'] = True
-settings.overrides['DOWNLOAD_DELAY'] = 3
-settings.overrides['CONCURRENT_REQUESTS_PER_DOMAIN'] = 2
+settings.overrides['DOWNLOAD_DELAY'] = 1
+settings.overrides['CONCURRENT_REQUESTS_PER_DOMAIN'] = 8
+settings.overrides['USER_AGENT'] = 'scrapy_bot/0.1 Scrapy/0.15'
 
 class GoogleSpider(BaseSpider):
+    """
+    Defines Scrapy spider for Google Custom Search API
+
+    It is meant to be run with 'scrapy runspider' command, not as a part of a Scrapy
+    project but as a standalone spider even thought it should work in a project as well.
+    To run throught scrapyd the FOLDER constant needs to be set to some absolute
+    path where scrapyd has writing access, since spider creates some files.
+
+    """
     name = "google"
-    allowed_domains = ["google.com"]
-    start_urls = ["https://www.google.com/"]
-#    url_home          = "http://www.google.com/"
-#    url_search        = "http://www.google.com/search?hl=%en&q=%(query)s&tbs=qdr:%(qdr)s&btnG=Google+Search"
-#    url_search        = "http://www.google.com/search?hl=en&q='kernel bug at'&tbs=qdr:0&btnG=Google+Search"
-#    url_next_page     = "http://www.google.com/search?hl=%(lang)s&q=%(query)s&start=%(start)d&tbs=qdr:%(qdr)s"
-#    url_search_num    = "http://www.google.com/search?hl=%(lang)s&q=%(query)s&num=%(num)d&tbs=qdr:%(qdr)s&btnG=Google+Search"
-#    url_next_page_num = "http://www.google.com/search?hl=%(lang)s&q=%(query)s&num=%(num)d&start=%(start)d&tbs=qdr:%(qdr)s"
-#https://www.google.com/search?aq=f&q=dom&hl=en&qscrl=1&tbs=cdr:1%2Ccd_min%3A4%2F10%2F2012%2Ccd_max%3A4%2F25%2F2012
+    allowed_domains = ["googleapis.com"]
+    start_urls = ["https://www.googleapis.com/"]
     query = '"kernel bug" OR "kernel warning"'
     link_count = None
-    last_date = None # load previous date from file in date format
-    days = 7
-    date_file = {'google_date':None}
-    folder = './data'
-    hashes = None
-    pickle_fd = None
-    
-    def __init__(self, *args, **kwargs):
-        super(GoogleSpider, self).__init__(*args, **kwargs)
-        if kwargs.get('days'):
-            self.days = kwargs.get('days')
-#        if kwargs.get('query'):
-#            self.query = kwargs.get('query')
-#        if kwargs.get('folder'):
-#            self.folder = kwargs.get('folder')
-#        else:
-#		    raise CloseSpider('Folder must be specified')
-        try:
-            self.date_file[self.date_file.keys()[0]] = open('%s/%s' %(self.folder, self.date_file.keys()[0]), 'rb')
-            self.last_date = self.date_file[self.date_file.keys()[0]].readline().strip()
-            self.last_date = datetime.strptime(self.last_date, '%Y-%m-%d')
-            self.last_date = self.last_date.date()
-        except (OSError, IOError, ValueError):
-#            self.date_file[self.date_file.keys()[0]] = open('%s%s' %(self.folder, self.date_file.keys()[0]), 'wb')
-            self.last_date = None
-        print self.last_date
+    weeks = 1              # number of weeks searched in one run
+    last_search = 0         # week number, where previous search finished
+    date_file = None        # file containing dates variable in pickled format
+    dates = {'pickle': None, 'search': None}
+    hashes = None           # set of url hashes
+    pickle_fd = None        # pickled hashes variable
+    reset = False           # used to restart spider crawl
+    error_resp = 0           # number of errorneous responses from google before shutdown
+    api_key = 'AIzaSyDnHMNRSaGgXx8WCkZAFZTP6GVnEIH_X7Q'
+    search_id = '002616388258066247887:qxrxtcgwd6s'
 
-        filename = "%s/%s.pck" %(self.folder, self.name)
+    def __init__(self, *args, **kwargs):
+        """Class constructor
+
+        Settings arguments are set by running the spider with option '--set option=VALUE'.
+        Opens all files and sets all class variables to either default values or 
+        values from the opened files. Api key and search_id must be set or spider closes
+        prematurely.
+        """
+        if settings.get('reset'):
+            self.reset = settings.get('reset')
+        if settings.get('id'):
+            self.search_id = settings.get('id')
+        if settings.get('key'):
+            self.api_key = settings.get('key')
+
+        if (not self.api_key) or (not self.search_id):
+            raise Exception("API Key and search engine ID must be defined")
         try:
-            t1 = os.path.getctime(filename)
-            file_time = datetime.fromtimestamp(t1)
+            self.date_file = open('%s/%s' %(FOLDER, 'google_date'), 'a+b')
+#            self.last_search = int(self.date_file[self.date_file.keys()[0]].readline().strip())
+            self.dates = pickle.load(self.date_file)
+            self.last_search = self.dates['search']
+#            print self.dates
+#            print "\n\n\n", self.last_search, self.dates['search'], "\n"
+        except (IOError, EOFError, pickle.UnpicklingError):
+            self.date_file= open('%s/%s' %(FOLDER, 'google_date'), 'a+b')
+            self.last_search = 0
+            self.dates['search'] = self.last_search
+            self.dates['pickle'] = None
+
+        filename = "%s/%s.pck" %(FOLDER, self.name)
+        try:
+            file_time = self.dates['pickle']
             delta = datetime.now() - file_time
-        except OSError:
-            delta = timedelta(days=8)
-        try:
-            if delta.days < 7:
+            self.pickle_fd = open(filename, 'a+b')
+            if delta.days > 7:
+                self.pickle_fd.truncate(0)
+                self.dates['pickle'] = datetime.now()
+        except (TypeError, IOError):
                 self.pickle_fd = open(filename, 'a+b')
-            else:
-                self.pickle_fd = open(filename, 'w+b')
-        except (OSError, IOError):
-            print 'Error opening file scrapyd must have writing access to folder'
-            raise CloseSpider('No writing access in this folder')
-        print self.pickle_fd
-        self.link_count = 0
+                self.pickle_fd.truncate(0)
+                self.dates['pickle'] = datetime.now()
+
+        print self.dates['pickle'], self.dates['search']
+#        raise Exception
         try:
-#            self.pickle_fd = open("%s%s.pck" %(self.folder, name),"rb+")
             self.hashes = pickle.load(self.pickle_fd)
-        except EOFError :
+        except (pickle.UnpicklingError, EOFError):
             self.hashes = set();
-        self.item_file = open('google.item', 'wb+')
+
+        try:
+            self.item_file = open('%s.item' %self.name, 'wb+')
+        except IOError:
+            raise CloseSpider('No writing access in this folder')
+        self.link_count = 0
         atexit.register(self.save)
+        if self.reset:
+            print "Search reset"
+            self.last_search = 0
+            self.dates['search'] = self.last_search
+            self.dates['pickle'] = datetime.now()
+            self.pickle_fd.truncate(0)
+            self.hashes = set()
 
     def save(self):
+        """ Method registerd to be executed atexit
+
+        Saves all files that are needed to be kept between searches, according to some 
+        Scrapy forums, this is not the best practice how to register something to be
+        executed when spider closes, but it seems to work.
+
+        """
         self.item_file.close()
-        filename = "%s/%s.pck" %(self.folder, self.name)
-        self.pickle_fd = open(filename, 'w+b')
+        self.pickle_fd.truncate(0)
+        self.date_file.truncate(0)
         pickle.dump(self.hashes, self.pickle_fd)
+        pickle.dump(self.dates, self.date_file)
         self.pickle_fd.close()
+        self.date_file.close()
 
     def start_requests(self):
-        min_date = self.last_date
-        max_date = min_date
-        pages = 10
+        """ Starting point of spider
+
+        Method creates reguests for all spidered pages. Yielded Request objecs are
+        queued by Scrapy and then executed according to some inner scheduling and also
+        in accordance to the set settings.
+        """
+        pages = 1/self.weeks
         i = 0
-        while i < self.days:
-            max_date = min_date
-            print max_date
-            if max_date:
-                min_date = max_date - timedelta(days=1)
-                pages = 7
-                print min_date
+        while i < self.weeks:
             pg_count = 0
             while pg_count < pages:
-                url = self.create_url(self.start_urls[0], self.query, pg_count*100, min_date, max_date)
+                url = self.create_url(self.start_urls[0], self.query, (pg_count*10)+1, self.last_search+i)
                 pg_count += 1
-                print url
+#                print url
                 yield Request(url, callback=self.parse_results)
-            if not min_date:
-                min_date = date.today()
-            else:
-                i += 1
-
-        self.date_file[self.date_file.keys()[0]] = open('%s/%s' %(self.folder, self.date_file.keys()[0]), 'wb')
-        self.date_file[self.date_file.keys()[0]].write('%s' %(min_date.strftime('%Y-%m-%d')))
-        self.date_file[self.date_file.keys()[0]].close()
-
-#        raise Exception("RANDOM EXCEPTION")
+            i += 1
+        print self.last_search
+        self.dates['search'] = self.last_search + i
 
     def parse_results(self, response):
-        hxs = HtmlXPathSelector(response)
-        date = None
+        """ Parsing method
+
+        This is where the magic happens. Since the response is formatted as JSON
+        parsing consists only of converting JSON string to dictionary structure and
+        saving the url from each item. Spider closes in case there are too many error responses.
+
+        @param response Response to tehe Request yielded in start_request
+        """
+#        date = None
         items = []
-#        for link in hxs.select('//span[@class="st"] | //li[@class="g"]'):
-        for link in hxs.select('//li[@class="g"]'):
-            item = MyItem()
-#           for link in hxs.select('//li[@class="g"]'):
-#           url = link.select('*/h3[@class="r"]/a[@href]/@href').extract()
-#           date = 
+        if (response.status >= 400):
+            self.error_resp += 1
+            print "Page not found"
+            if self.error_resp > 50:
+                raise CloseSpider('Too many error responses')
+            return None
 
-            # link.select('*/a[contains(@href, "http")]/@href').extract()
-            searched_link = link.select('*/h3[@class="r"]/a[@href]/@href').extract()
- 	    #link.select('text()').extract() link.select('*/text()').extract()
-            link_date = link.select('*//span[@class="f std"]/text()').extract()
-
-            if len(link_date) > 0:
-                date = copy(link_date[0].strip()) #add date parsing here
-                date = self.dateFromString(copy(link_date[0].strip()))
-                if date:
-                    date = date.strftime('%Y-%m-%d')
-
-            if len(searched_link) > 0:
-                searched_link = self.filter_result(searched_link[0])
-            if searched_link:
-#                print "LINK %s" %searched_link
-                h = hash(searched_link)
-                if h in self.hashes:
-                    continue
-                self.hashes.add(h)
-                self.link_count += 1
-                item['url'] = searched_link
-                item['num'] = self.link_count
-                item['length'] = len(searched_link)
-
-                item['date'] = date
-                print item
-                items.append(item)
-                self.item_file.write('%s\n' %item['url'])
+        res = json.loads(response.body)
+        res_num = int(res['searchInformation']['totalResults'])
+        if res_num > 0:
+            for i in res['items']:
+                item = MyItem()
+                try:
+                    h = hash(i['link'])
+                    if h in self.hashes:
+                        continue
+                    self.hashes.add(h)
+                    self.link_count += 1
+                    item['url'] = i['link']
+#                    item['num'] = self.link_count
+#                    item['length'] = len(i['link'])
+#                    item['date'] = date
+                    print item
+                    self.item_file.write('%s\n' %item['url'])
+                    items.append(item)
+                except (KeyError, IndexError) :
+                    print "Item Error"
+                    pass
         return items
 
-    def create_url(self, base, query, start_num, min_date, max_date):
-        qparams = url_params.copy()
+    def create_url(self, base, query, start_num, week):
+        """ Puts together the request url
+
+        Using urlencode creates url that is requested from server.
+        @param base 
+        @param query Searched query
+        @param start_num Technically it means page number
+        @param week Number of weeks in the past that are included in search
+        """
+        qparams = PARAMS.copy()
         qparams['q'] = query
         qparams['start'] = str(start_num)
-        # if there was no previous date saved, search without date limits
-        if (not min_date) or (not max_date):
-            qparams['tbs'] = 'qdr:0'
-        else:
-            qparams['tbs'] = 'cdr:1,cd_min:%s,cd_max:%s' %(min_date.strftime('%m/%d/%Y'), max_date.strftime('%m/%d/%Y'))
+        qparams['dateRestrict'] = 'w%s' %week
+        qparams['cx'] = self.search_id
+        qparams['key'] = self.api_key
         req_params = urlencode(qparams, True)
-        req_url = urlparse.urljoin(base, 'search')
+        req_url = urlparse.urljoin(base, 'customsearch/v1')
         req_url += '?' + req_params
         return req_url
 
-    def filter_result(self, link):
-        try:
-            # Valid results are absolute URLs not pointing to a Google domain
-            # like images.google.com or googleusercontent.com
-            o = urlparse.urlparse(link, 'http')
-            if o.netloc and 'google' not in o.netloc:
-                return link
+#    def filter_result(self, link):
+#    """ Filters Google related domains
 
-            # Decode hidden URLs.
-            if link.startswith('/url?'):
-                link = urlparse.parse_qs(o.query)['q'][0]
+#    Originally used to filter urls when using Google web interface, obsolete when
+#    using API
+#    """
+#        try:
+#            # Valid results are absolute URLs not pointing to a Google domain
+#            # like images.google.com or googleusercontent.com
+#            o = urlparse.urlparse(link, 'http')
+#            if o.netloc and 'google' not in o.netloc:
+#                return link
 
-            # Valid results are absolute URLs not pointing to a Google domain
-            # like images.google.com or googleusercontent.com
-            o = urlparse.urlparse(link, 'http')
-            if o.netloc and 'google' not in o.netloc:
-                return link
+#            # Decode hidden URLs.
+#            if link.startswith('/url?'):
+#                link = urlparse.parse_qs(o.query)['q'][0]
 
-        # Otherwise, or on error, return None.
-        except Exception:
-            pass
-        return None
+#            # Valid results are absolute URLs not pointing to a Google domain
+#            # like images.google.com or googleusercontent.com
+#            o = urlparse.urlparse(link, 'http')
+#            if o.netloc and 'google' not in o.netloc:
+#                return link
 
-    def dateFromString(self, in_str):
+#        # Otherwise, or on error, return None.
+#        except Exception:
+#            pass
+#        return None
 
-        s = in_str.strip()
-        if len(s) > 12 or len(s) < 5:
-            return None
-        dt = None
-        try:
-            dt = datetime.strptime(s, '%Y-%m-%d').date()
-            if dt:
-                return dt
-        except (ValueError, TypeError, IndexError):
-            pass
+#    def dateFromString(self, in_str):
+#        """ Date converter
 
-        dt = None
-        now = date.today()
-        c = pdt.Calendar()
-        result, what = c.parse(s)
+#        Uses parsedatetime module to convert date and time to corresponding date
+#        therefore it is not used by default since dates are not necessary. Also if date is 
+#        in format for example 'Fri 13:30' it is assumed that it is last Friday
+#        """
+#        s = in_str.strip()
+#        if len(s) > 12 or len(s) < 5:
+#            return None
+#        dt = None
+#        try:
+#            dt = datetime.strptime(s, '%Y-%m-%d').date()
+#            if dt:
+#                return dt
+#        except (ValueError, TypeError, IndexError):
+#            pass
 
-        # what was returned (see http://code-bear.com/code/parsedatetime/docs/)
-        # 0 = failed to parse
-        # 1 = date (with current time, as a struct_time)
-        # 2 = time (with current date, as a struct_time)
-        # 3 = datetime
-        if what in (1,2):
-            dt = date(*result[:3])
-            if (dt == now):
-                try:
-                    d = datetime.strptime(s, '%Y-%m-%d').date()
-                    if (d) and (d != now):
-                        dt = d
-                except (ValueError, TypeError, IndexError):
-                    pass
-        elif what == 3:
-            dt = date(*result[:3])
-        else:
-            return None
-        if (now-dt) < timedelta(0) and (now-dt) >= timedelta(days=-7):
-            dt = dt - timedelta(days=7)
-        elif (now-dt) < timedelta(days=-7):
-            dt = None
-        if dt:
-            return dt
-        else:
-            return None
+#        dt = None
+#        now = date.today()
+#        c = pdt.Calendar()
+#        result, what = c.parse(s)
+
+#        # what was returned (see http://code-bear.com/code/parsedatetime/docs/)
+#        # 0 = failed to parse
+#        # 1 = date (with current time, as a struct_time)
+#        # 2 = time (with current date, as a struct_time)
+#        # 3 = datetime
+#        if what in (1,2):
+#            dt = date(*result[:3])
+#            if (dt == now):
+#                try:
+#                    d = datetime.strptime(s, '%Y-%m-%d').date()
+#                    if (d) and (d != now):
+#                        dt = d
+#                except (ValueError, TypeError, IndexError):
+#                    pass
+#        elif what == 3:
+#            dt = date(*result[:3])
+#        else:
+#            return None
+#        if (now-dt) < timedelta(0) and (now-dt) >= timedelta(days=-7):
+#            dt = dt - timedelta(days=7)
+#        elif (now-dt) < timedelta(days=-7):
+#            dt = None
+#        if dt:
+#            return dt
+#        else:
+#            return None
