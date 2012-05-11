@@ -1,0 +1,25 @@
+INPUT		       = src/main.c src/database.h src/database.c src/network.h src/network.c src/parse.h src/parse.c bin/spiders/bugzilla_spider.py bin/spiders/google_spider.py
+DOXYFILE_ENCODING      = UTF-8
+OUTPUT_DIRECTORY       = doc
+PROJECT_NAME           = webCrawler
+OUTPUT_LANGUAGE        = English
+OPTIMIZE_OUTPUT_FOR_C  = NO
+OPTIMIZE_OUTPUT_JAVA   = YES
+TYPEDEF_HIDES_STRUCT   = NO
+GENERATE_LATEX         = NO
+HIDE_IN_BODY_DOCS      = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = YES
+EXPAND_AS_DEFINED      = STANDARD_CONSTRUCTORS_HEADER
+EXTRACT_ALL            = YES
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+BRIEF_MEMBER_DESC      = YES
+EXTRACT_STATIC         = NO
+HIDE_SCOPE_NAMES       = YES
+SHOW_INCLUDE_FILES     = YES 
+SHOW_DIRECTORIES       = YES
+SHOW_NAMESPACES        = NO
+JAVADOC_AUTOBRIEF = YES
+ALPHABETICAL_INDEX     = YES
+
