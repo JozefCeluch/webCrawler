@@ -7,23 +7,6 @@ from datetime import datetime, timedelta, date
 import optparse
 import ConfigParser
 
-"FINISHED\
-NEW DB ENTRIES:		0\
-SUCCESSFUL MATCH:	1\
-FAILED REGEX:		9\
-FAILED DOWNLOAD:	0\
-ALL URLs:		10"
-
-resp = ['FINISHED ', 'NEW DB ENTRIES:		7', 'SUCCESSFUL MATCH:	15', 'FAILED REGEX:		84', 'FAILED DOWNLOAD:	1', 'ALL URLs:		100']
-
-def results(out):
-    try:
-        (name, value) = out.strip().split(':')
-        for i in STATS_STR.keys():
-            if name.strip() == i:
-                STATS[STATS_STR[name.strip()]].append(value.strip())
-    except (ValueError):
-        pass
 done = False
 STATS_STR = {'NEW DB ENTRIES':'new_entries', 'SUCCESSFUL MATCH':'found_match', 'FAILED REGEX':'failed_match',
             'FAILED DOWNLOAD':'failed_download', 'ALL URLs':'all_urls'}
@@ -36,7 +19,7 @@ DAY = timedelta(days=1)
 def parse_argv():
 #    probably move first 3 options to the C program and save as macros
     opts = {'user':'jozefceluch', 'hour':None, 'minute':'00', 'days':'7', 'reset':None, 'db':None,
-            'search_id':'002616388258066247887:qxrxtcgwd6s', 'api_key':'AIzaSyDnHMNRSaGgXx8WCkZAFZTP6GVnEIH_X7Q'}
+            'search_id':None, 'api_key':None, 'folder':None}
     opt_parser = optparse.OptionParser("%prog [options] config.ini") # 1st argument is usage, %prog is replaced with sys.argv[0]
     conf_parser = ConfigParser.SafeConfigParser()
     opt_parser.add_option(
@@ -91,10 +74,12 @@ def parse_argv():
         if conf_parser.has_section('scrapy'):
             if conf_parser.has_option('scrapy','days'):
                 opts['days'] = conf_parser.get('scrapy', 'days')
-            if conf_parser.has_option('scrapy','project'):
-                opts['project'] = conf_parser.get('scrapy', 'project')
             if conf_parser.has_option('scrapy','reset'):
                 opts['reset'] = conf_parser.get('scrapy', 'reset')
+            if conf_parser.has_option('scrapy','api_key'):
+                opts['api_key'] = conf_parser.get('scrapy', 'api_key')
+            if conf_parser.has_option('scrapy','search_id'):
+                opts['search_id'] = conf_parser.get('scrapy', 'search_id')
 
     if options.db:
         opts['db'] = options.db
@@ -148,7 +133,6 @@ def run_parser(spider, db, user):
     s = subprocess.Popen(['./webCrawler', '-f','%s.item' %spider, '-d', db, '-u', user], stdout=subprocess.PIPE)
     finished = False
 #    while s.poll() == None:
-    print "WHILELOOP"
     try:
         out = s.communicate()[0]
 #            s.stderr.flush()
@@ -161,7 +145,7 @@ def run_parser(spider, db, user):
                 if name.strip() == i:
                     STATS[STATS_STR[name.strip()]].append(value.strip())
     except (AttributeError):
-        print "ATTRINBUTEERROR"
+        print "ATTRIBUTEERROR"
         pass
 #        except IOError as err:
 #            print err.errno
@@ -173,7 +157,7 @@ def run_process(opts):
     spider_pid = {'bugzilla': None, 'google':None}
     pids=set()
     for spider in spiders:
-        args=['scrapy runspider %s_spider.py --set reset=%s' %(spider, opts['reset'])]
+        args=['scrapy runspider spiders/%s_spider.py --set reset=%s' %(spider, opts['reset'])]
         if spider == 'google':
             args[0] += ' --set id=%s --set key=%s' %(opts['search_id'], opts['api_key'])
         print args
