@@ -11,7 +11,7 @@ int compile_regex(pcre **re, char *regex)
 	int erroffset;
 
 	*re = pcre_compile(regex, /* the pattern */
-	PCRE_UCP | PCRE_NEWLINE_ANYCRLF | PCRE_CASELESS, /* options */
+	/*PCRE_UCP |*/ PCRE_NEWLINE_ANYCRLF | PCRE_CASELESS, /* options */
 	&error, /* for error message */
 	&erroffset, /* for error offset */
 	NULL); /* use default character tables */
@@ -97,6 +97,7 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse)
 							cur_node->children->doc,
 							cur_node->children, 1);
 				}
+
 				if (key) {
 					found = bug_warning_match((char*) key,
 							parse);
@@ -176,18 +177,30 @@ int print_regex_result(char *string, int stat1, int *ovector1, int stat2,
 		int *ovector2, struct parsingData *parse)
 {
 	if (stat1 > 0 && stat2 > 0) {
-		const char *src;
-		const char *line;
-		const char *ver;
+		char *src;
+		char *line;
+		char *ver;
 		int src_offset = 0;
 		int src_len = ovector1[3] - ovector1[2];
 		int *vector = malloc(sizeof(int) * OVECCOUNT);
 		int ret_val = 0;
+		int res;
 
-		pcre_get_substring(string, ovector1, stat1, 1, &src);
-		pcre_get_substring(string, ovector1, stat1, 2, &line);
-		pcre_get_substring(string, ovector2, stat2, 1, &ver);
-
+		res = pcre_get_substring(string, ovector1, stat1, 1, (const char **)&src);
+		if (res < 0) {
+			fprintf(stderr, "pcre_get_substring error");
+			return -1;
+		}
+		res = pcre_get_substring(string, ovector1, stat1, 2, (const char **)&line);
+		if (res < 0) {
+			fprintf(stderr, "pcre_get_substring error");
+			return -1;
+		}
+		res = pcre_get_substring(string, ovector2, stat2, 1, (const char **)&ver);
+		if (res < 0) {
+			fprintf(stderr, "pcre_get_substring error");
+			return -1;
+		}
 		/* keeps only last part of the path */
 		if (match_regex((char *) src, parse->re_path, &vector)) {
 			int i = 0, j = 0;
