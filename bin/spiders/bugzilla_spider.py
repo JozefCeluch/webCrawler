@@ -36,10 +36,6 @@ URL_PARAMS = {
 	'long_desc' : '',
 #	'bug_file_loc_type': 'allwordssubstr',
 #	'bug_file_loc': '',
-#	'status_whiteboard_type': 'allwordssubstr',
-#	'status_whiteboard': '',
-	# NEW, ASSIGNED and REOPENED is obsolete as of bugzilla 3.x and has
-	# been removed from bugs.gentoo.org on 2011/05/01
 #	'bug_status': ['NEW', 'ASSIGNED', 'REOPENED', 'NEEDINFO', 'CONFIRMED', 'IN_PROGRESS'],
     'bug_status':['__open__', '__closed__'],
 #	'bug_severity': ['unspecified', 'urgent', 'high', 'medium', 'low'],

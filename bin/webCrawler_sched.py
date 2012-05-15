@@ -14,6 +14,7 @@ STATS = {'new_entries':[], 'found_match':[], 'failed_match':[], 'failed_download
 STAT_FILE = 'webcrawler_run_stats'
 START_DATE = date.today()
 DAY = timedelta(days=1)
+SCRAPY = 'scrapy'
 #DAY = timedelta(seconds=120)
 
 def parse_argv():
@@ -130,7 +131,7 @@ def reg_signals():
     signal.signal(signal.SIGUSR1, handler)
 
 def run_parser(spider, db, user):
-    s = subprocess.Popen(['./webCrawler', '-f','%s.item' %spider, '-d', db, '-u', user], stdout=subprocess.PIPE)
+    s = subprocess.Popen(['./parser', '-f','%s.item' %spider, '-d', db, '-u', user], stdout=subprocess.PIPE)
     finished = False
 #    while s.poll() == None:
     try:
@@ -145,7 +146,7 @@ def run_parser(spider, db, user):
                 if name.strip() == i:
                     STATS[STATS_STR[name.strip()]].append(value.strip())
     except (AttributeError):
-        print "ATTRIBUTEERROR"
+        print "Error parsing results"
         pass
 #        except IOError as err:
 #            print err.errno
@@ -157,7 +158,7 @@ def run_process(opts):
     spider_pid = {'bugzilla': None, 'google':None}
     pids=set()
     for spider in spiders:
-        args=['scrapy runspider spiders/%s_spider.py --set reset=%s' %(spider, opts['reset'])]
+        args=['%s runspider spiders/%s_spider.py --set reset=%s' %(SCRAPY, spider, opts['reset'])]
         if spider == 'google':
             args[0] += ' --set id=%s --set key=%s' %(opts['search_id'], opts['api_key'])
         print args
@@ -182,7 +183,6 @@ if __name__ == "__main__":
     try:
         reset_period = int(opts['reset']) * DAY
     except (ValueError):
-        print "VALUEERROR"
         reset_period = 30 * DAY
 
     reset_date = START_DATE + reset_period
@@ -242,11 +242,6 @@ if __name__ == "__main__":
             print "Sleeping until %s" %(sleep_time + curr_time)
             print usr_time
             sleep(sleep_time.total_seconds())
-
-#        mins = str(int(mins)+2)
-#        if mins >= '60':
-#            mins = '00'
-#            hrs = str(int(hrs)+1)
 
 #def run_spider(spider, options):
 #    url = 'http://%s:%s/schedule.json' %(options['server'], options['port'])

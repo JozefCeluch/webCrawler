@@ -6,9 +6,6 @@ from scrapy.exceptions import CloseSpider
 
 from copy import copy
 import cPickle as pickle
-
-#nohup prikaz &
-
 import os.path, atexit, errno
 
 from datetime import datetime, date, timedelta
@@ -78,7 +75,7 @@ class GoogleSpider(BaseSpider):
     start_urls = ["https://www.googleapis.com/"]
     query = '"kernel bug" OR "kernel warning"'
     link_count = None
-    weeks = 1              # number of weeks searched in one run
+    weeks = 10              # number of weeks searched in one run
     last_search = 0         # week number, where previous search finished
     date_file = None        # file containing dates variable in pickled format
     dates = {'pickle': None, 'search': None}
@@ -86,8 +83,8 @@ class GoogleSpider(BaseSpider):
     pickle_fd = None        # pickled hashes variable
     reset = False           # used to restart spider crawl
     error_resp = 0           # number of errorneous responses from google before shutdown
-    api_key = 'AIzaSyDnHMNRSaGgXx8WCkZAFZTP6GVnEIH_X7Q'
-    search_id = '002616388258066247887:qxrxtcgwd6s'
+    api_key = None
+    search_id = None
 
     def __init__(self, *args, **kwargs):
         """Class constructor
