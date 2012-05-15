@@ -59,9 +59,17 @@ def parse_argv():
     options, args = opt_parser.parse_args()
     # options.key = value
     # args = [arg1, ... argN]
+    if not args:
+        args = ['config.ini']
 
     for ini_file in args:
-        conf_parser.read(ini_file)
+        try:
+            if not conf_parser.read(ini_file):
+                print '%s is not valid config file' %ini_file
+                sys.exit(1)
+        except ConfigParser.Error:
+            print '%s is not valid config file' %ini_file
+            sys.exit(1)
         if conf_parser.has_section('database'):
             if conf_parser.has_option('database','file'):
                 opts['db'] = conf_parser.get('database', 'file')
@@ -101,7 +109,7 @@ def save_stats():
     except (IOError, OSError):
         print 'Unable to open file'
         print STATS
-    fd.write('%s %s\n' %(str(date.today()), str(STATS)) )
+    fd.write('%s %s\n' %(str(date.today()), json.dumps(STATS)))
     fd.close
 
 def print_stats():
