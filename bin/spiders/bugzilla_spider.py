@@ -60,7 +60,7 @@ More options can be found at http://doc.scrapy.org/en/latest/topics/settings.htm
 settings.overrides['USER_AGENT'] = 'scrapy_bot/0.1 Scrapy/0.15' 
 settings.overrides['RANDOMIZE_DOWNLOAD_DELAY'] = True
 settings.overrides['DOWNLOAD_DELAY'] = 3
-settings.overrides['CONCURRENT_REQUESTS_PER_DOMAIN'] = 4
+settings.overrides['CONCURRENT_REQUESTS_PER_DOMAIN'] = 2
 #settings.overrides['LOG_ENABLED'] = False
 #settings.overrides['LOG_FILE'] = 'bugzilla.log'
 #settings.overrides['LOG_LEVEL'] = 'INFO'
@@ -135,8 +135,8 @@ class BugzillaSpider(BaseSpider):
             raise CloseSpider('No writing access in this folder')
         self.link_count = 0
         atexit.register(self.save)
-        if self.reset:
-            print "Search reset"
+        if self.reset == 'True':
+            print "Bugzilla search reset"
             self.last_search = date.today()
             self.dates['search'] = self.last_search
             self.dates['pickle'] = datetime.now()

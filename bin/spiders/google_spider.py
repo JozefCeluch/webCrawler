@@ -56,7 +56,7 @@ More options can be found at http://doc.scrapy.org/en/latest/topics/settings.htm
 
 """
 settings.overrides['RANDOMIZE_DOWNLOAD_DELAY'] = True
-settings.overrides['DOWNLOAD_DELAY'] = 1
+settings.overrides['DOWNLOAD_DELAY'] = 2
 settings.overrides['CONCURRENT_REQUESTS_PER_DOMAIN'] = 8
 settings.overrides['USER_AGENT'] = 'scrapy_bot/0.1 Scrapy/0.15'
 
@@ -142,8 +142,8 @@ class GoogleSpider(BaseSpider):
             raise CloseSpider('No writing access in this folder')
         self.link_count = 0
         atexit.register(self.save)
-        if self.reset:
-            print "Search reset"
+        if self.reset == 'True':
+            print "Google search reset"
             self.last_search = 0
             self.dates['search'] = self.last_search
             self.dates['pickle'] = datetime.now()
@@ -181,12 +181,12 @@ class GoogleSpider(BaseSpider):
                 url = self.create_url(self.start_urls[0], self.query, (pg_count*10)+1, self.last_search+i)
                 pg_count += 1
 #                print url
-                yield Request(url, callback=self.parse_results)
+                yield Request(url, callback=self.parse)
             i += 1
         print self.last_search
         self.dates['search'] = self.last_search + i
 
-    def parse_results(self, response):
+    def parse(self, response):
         """ Parsing method
 
         This is where the magic happens. Since the response is formatted as JSON
