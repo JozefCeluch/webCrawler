@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python -u
 import subprocess
 from time import sleep, strftime
 import os, sys, fcntl, signal
