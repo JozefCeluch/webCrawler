@@ -6,6 +6,7 @@ import json, urllib2, tempfile
 from datetime import datetime, timedelta, date
 import optparse
 import ConfigParser
+import errno
 
 done = False
 STATS_STR = {'NEW DB ENTRIES':'new_entries', 'SUCCESSFUL MATCH':'found_match', 'FAILED REGEX':'failed_match',
@@ -18,9 +19,8 @@ SCRAPY = 'scrapy'
 #DAY = timedelta(seconds=120)
 
 def parse_argv():
-#    probably move first 3 options to the C program and save as macros
-    opts = {'user':'jozefceluch', 'hour':None, 'minute':'00', 'days':'7', 'reset':None, 'db':None,
-            'search_id':None, 'api_key':None, 'folder':None}
+    opts = {'user':'jozefceluch', 'hour':None, 'minute':'00', 'reset':None, 'db':None,
+            'search_id':None, 'api_key':None, 'folder':None, 'reset_now':False}
     opt_parser = optparse.OptionParser("%prog [options] config.ini") # 1st argument is usage, %prog is replaced with sys.argv[0]
     conf_parser = ConfigParser.SafeConfigParser()
     opt_parser.add_option(
@@ -32,33 +32,19 @@ def parse_argv():
         help="Prepared database file",
     )
     opt_parser.add_option(
-        "-u", "--user",    # short and long option
-#        dest="delay",       # not needed in this case, because default dest name is derived from long option
-#        type="int",         # "string" is default, other types: "int", "long", "choice", "float" and "complex"
-#        action="store",      # "store" is default, other actions: "store_true", "store_false" and "append"
-#        default=0,          # set default value here, None is used otherwise
+        "-u", "--user",
         help="User registered in database",
     )
     opt_parser.add_option(
-        "--hour",    # short and long option
-#        dest="delay",       # not needed in this case, because default dest name is derived from long option
-#        type="int",         # "string" is default, other types: "int", "long", "choice", "float" and "complex"
-#        action="store",      # "store" is default, other actions: "store_true", "store_false" and "append"
-#        default=0,          # set default value here, None is used otherwise
+        "--hour",
         help="Hour when to run crawler",
     )
     opt_parser.add_option(
-        "--minute",    # short and long option
-#        dest="delay",       # not needed in this case, because default dest name is derived from long option
-#        type="int",         # "string" is default, other types: "int", "long", "choice", "float" and "complex"
-#        action="store",      # "store" is default, other actions: "store_true", "store_false" and "append"
-#        default='00',          # set default value here, None is used otherwise
+        "--minute",
         help="Minute when to run crawler",
     )
     opt_parser.epilog = "To quit send SIGINT, SIGQUIT or SIGTERM. To show statistics send SIGUSR1."
     options, args = opt_parser.parse_args()
-    # options.key = value
-    # args = [arg1, ... argN]
     if not args:
         args = ['config.ini']
 
@@ -81,8 +67,6 @@ def parse_argv():
             if conf_parser.has_option('time','minute'):
                 opts['minute'] = conf_parser.get('time', 'minute')
         if conf_parser.has_section('scrapy'):
-            if conf_parser.has_option('scrapy','days'):
-                opts['days'] = conf_parser.get('scrapy', 'days')
             if conf_parser.has_option('scrapy','reset'):
                 opts['reset'] = conf_parser.get('scrapy', 'reset')
             if conf_parser.has_option('scrapy','api_key'):
@@ -124,7 +108,6 @@ def print_stats():
 def handler(signum, frame):
     global done
     if (signum == signal.SIGUSR1):
-        print "SIGUSR1"
         print_stats()
     else:
         print "Program finished"
@@ -139,37 +122,40 @@ def reg_signals():
     signal.signal(signal.SIGUSR1, handler)
 
 def run_parser(spider, db, user):
-    s = subprocess.Popen(['./parser', '-f','%s.item' %spider, '-d', db, '-u', user], stdout=subprocess.PIPE)
-    finished = False
+    s = None
+    ret = None
+    try:
+        s = subprocess.Popen(['./parser', '-f','%s.item' %spider, '-d', db, '-u', user], stdout=subprocess.PIPE)
+    except OSError, (e, msg):
+        if e == errno.ENOENT:
+            print "ERROR: Parser program is not in current directory"
+        print msg
+        sys.exit(1)
 #    while s.poll() == None:
     try:
         out = s.communicate()[0]
-#            s.stderr.flush()
-        if len(out)> 0:
-            print '"%s"' %out.strip().split('\n')
         for line in out.strip().split('\n'):
-            name, value = line.strip().split(':')
-            print name, value
-            for i in STATS_STR.keys():
-                if name.strip() == i:
-                    STATS[STATS_STR[name.strip()]].append(value.strip())
+            try:
+                name, value = line.strip().split(':')
+                print name, value
+                for i in STATS_STR.keys():
+                    if name.strip() == i:
+                        STATS[STATS_STR[name.strip()]].append(value.strip())
+            except (ValueError, NameError):
+                print "Error processing parser response"
+                continue
+        ret = s.wait()
     except (AttributeError):
         print "Error parsing results"
-        pass
-#        except IOError as err:
-#            print err.errno
-#            print err.strerror
-    ret = s.wait()
     return ret
 
 def run_process(opts):
     spider_pid = {'bugzilla': None, 'google':None}
     pids=set()
     for spider in spiders:
-        args=['%s runspider spiders/%s_spider.py --set reset=%s' %(SCRAPY, spider, opts['reset'])]
+        args=['%s runspider spiders/%s_spider.py --set reset=%s' %(SCRAPY, spider, opts['reset_now'])]
         if spider == 'google':
             args[0] += ' --set id=%s --set key=%s' %(opts['search_id'], opts['api_key'])
-        print args
         p = subprocess.Popen(args, shell=True)
         spider_pid[spider]=p.pid
         pids.add(p.pid)
@@ -215,15 +201,15 @@ if __name__ == "__main__":
     print hrs, mins
 
     print "PID: %s" %os.getpid()
-    curr_time = datetime.now().replace(second=0, microsecond=0)
-    usr_time = curr_time.replace(hour=int(hrs), minute=int(mins), second=0, microsecond=0)
+    curr_time = datetime.now().replace(microsecond=0)
+    usr_time = curr_time.replace(hour=int(hrs), minute=int(mins), microsecond=0)
     print "Run program at: %s:%s" %(hrs, mins)
     while True:
         if done:
             break
         print "Time: %s" %strftime('%H:%M:%S')
         if curr_time.date() == reset_date:
-            opts['reset'] = True
+            opts['reset_now'] = True
             reset_date = reset_date + reset_period
             print 'Search reset'
         else:
@@ -236,30 +222,28 @@ if __name__ == "__main__":
             run_end = datetime.now()
             print "process finished: %s" %run_end
             runtime = run_end - run_start
-            if (runtime.total_seconds() < 60):
+            if ((runtime.microseconds + (runtime.seconds + runtime.days * 24 * 3600) * 10**6) / 10**6) < 60:
                 print 'Process ran less than a minute'
-                sleep(60 - runtime.total_seconds())
+                sleep(60 - ((runtime.microseconds + (runtime.seconds + runtime.days * 24 * 3600) * 10**6) / 10**6))
             usr_time = usr_time + DAY
         else:
-            curr_time = datetime.now().replace(second=0, microsecond=0)
-            sleep_time = usr_time - curr_time 
+            curr_time = datetime.now().replace(microsecond=0)
+            sleep_time = usr_time - curr_time - timedelta(seconds=curr_time.second-1)
             print sleep_time
 #            raise Exception
-            if sleep_time.total_seconds() < 0:
+            if ((sleep_time.microseconds + (sleep_time.seconds + sleep_time.days * 24 * 3600) * 10**6) / 10**6) < 0:
                 sleep_time = DAY + sleep_time
             print "Sleeping until %s" %(sleep_time + curr_time)
             print usr_time
-            sleep(sleep_time.total_seconds())
+            sleep((sleep_time.microseconds + (sleep_time.seconds + sleep_time.days * 24 * 3600) * 10**6) / 10**6)
 
 #def run_spider(spider, options):
 #    url = 'http://%s:%s/schedule.json' %(options['server'], options['port'])
 #    proj = 'project=%s' %options['project']
 #    spid = 'spider=%s' %spider
 #    fldr = 'folder=%s' %options['folder']
-#    days = 'days=%s' %options['days']
-#    print options['folder'], options['days']
 #    raise Exception
-#    s = subprocess.Popen(['curl','-s', url, '-d', proj, '-d', spid, '-d', fldr, '-d', days], stdout=subprocess.PIPE)
+#    s = subprocess.Popen(['curl','-s', url, '-d', proj, '-d', spid, '-d', fldr], stdout=subprocess.PIPE)
 #    (out, err) = s.communicate()
 #    print out, err
 #    out = out.strip('{}\n')
