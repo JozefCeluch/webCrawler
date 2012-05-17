@@ -198,7 +198,6 @@ if __name__ == "__main__":
     except (ValueError):
         print 'Input error, insert valid numbers'
         sys.exit(1)
-    print hrs, mins
 
     print "PID: %s" %os.getpid()
     curr_time = datetime.now().replace(microsecond=0)
@@ -225,17 +224,14 @@ if __name__ == "__main__":
             if ((runtime.microseconds + (runtime.seconds + runtime.days * 24 * 3600) * 10**6) / 10**6) < 60:
                 print 'Process ran less than a minute'
                 sleep(60 - ((runtime.microseconds + (runtime.seconds + runtime.days * 24 * 3600) * 10**6) / 10**6))
-            usr_time = usr_time + DAY
+            usr_time = usr_time.replace(second=0) + DAY
         else:
             curr_time = datetime.now().replace(microsecond=0)
-            usr_time = curr_time.replace(hour=int(hrs), minute=int(mins), microsecond=0)
-            sleep_time = usr_time - curr_time - timedelta(seconds=curr_time.second-1)
-            print sleep_time
-#            raise Exception
+            sleep_time = usr_time - curr_time - timedelta(seconds=usr_time.second-1)
             if ((sleep_time.microseconds + (sleep_time.seconds + sleep_time.days * 24 * 3600) * 10**6) / 10**6) < 0:
                 sleep_time = DAY + sleep_time
+                usr_time = usr_time.replace(second=0) + DAY
             print "Sleeping until %s" %(sleep_time + curr_time)
-            print usr_time
             sleep((sleep_time.microseconds + (sleep_time.seconds + sleep_time.days * 24 * 3600) * 10**6) / 10**6)
 
 #def run_spider(spider, options):
