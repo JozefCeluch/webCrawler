@@ -215,7 +215,7 @@ if __name__ == "__main__":
         else:
             opts['reset'] = False
 #        if strftime('%H') == hrs and strftime('%M') == mins:
-        if datetime.now().replace(second=0, microsecond=0) == usr_time:
+        if datetime.now().replace(second=0, microsecond=0) == usr_time.replace(second=0):
             run_start = datetime.now()
             print "process started: %s" %run_start
             run_process(opts)
@@ -228,6 +228,7 @@ if __name__ == "__main__":
             usr_time = usr_time + DAY
         else:
             curr_time = datetime.now().replace(microsecond=0)
+            usr_time = curr_time.replace(hour=int(hrs), minute=int(mins), microsecond=0)
             sleep_time = usr_time - curr_time - timedelta(seconds=curr_time.second-1)
             print sleep_time
 #            raise Exception
