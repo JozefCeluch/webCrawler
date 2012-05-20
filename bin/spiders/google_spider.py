@@ -59,6 +59,7 @@ settings.overrides['RANDOMIZE_DOWNLOAD_DELAY'] = True
 settings.overrides['DOWNLOAD_DELAY'] = 2
 settings.overrides['CONCURRENT_REQUESTS_PER_DOMAIN'] = 8
 settings.overrides['USER_AGENT'] = 'scrapy_bot/0.1 Scrapy/0.15'
+#settings.overrides['SPIDER_MIDDLEWARES'] = {'scrapy.contrib.spidermiddleware.httperror.HttpErrorMiddleware':1}
 
 class GoogleSpider(BaseSpider):
     """
@@ -85,6 +86,7 @@ class GoogleSpider(BaseSpider):
     error_resp = 0           # number of errorneous responses from google before shutdown
     api_key = None
     search_id = None
+    handle_httpstatus_list = [400, 401, 403, 404, 405, 413, 500]
 
     def __init__(self, *args, **kwargs):
         """Class constructor
@@ -173,7 +175,7 @@ class GoogleSpider(BaseSpider):
         queued by Scrapy and then executed according to some inner scheduling and also
         in accordance to the set settings.
         """
-        pages = 1/self.weeks
+        pages = 100/self.weeks
         i = 0
         while i < self.weeks:
             pg_count = 0
@@ -198,11 +200,22 @@ class GoogleSpider(BaseSpider):
 #        date = None
         items = []
         if (response.status >= 400):
-            self.error_resp += 1
-            print "Page not found"
-            if self.error_resp > 50:
-                raise CloseSpider('Too many error responses')
-            return None
+            if response.status == 400:
+                print 'Bad request - The request has syntax error.'
+            elif response.status == 401:
+                print 'Authorization failure'
+            elif response.status == 403:
+                print 'Forbidden - Daily limit reached'
+            elif response.status == 404:
+                print 'Resource not found'
+            elif response.status == 405:
+                print 'Method not allowed'
+            elif response.status == 413:
+                print 'File too large'
+            elif response.status == 500:
+                print 'Server error'
+            print 'For more information: https://developers.google.com/custom-search/docs/api#status_code'
+            raise CloseSpider('Too many error responses')
 
         res = json.loads(response.body)
         res_num = int(res['searchInformation']['totalResults'])
