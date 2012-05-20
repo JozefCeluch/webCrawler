@@ -26,7 +26,7 @@ except OSError, e:
 
 """Enables loging into file and to standard output"""
 logfile = open('%s/google.log' %FOLDER, 'a+b')
-log_observer = ScrapyFileLogObserver(logfile, level=logging.DEBUG)
+log_observer = ScrapyFileLogObserver(logfile, level=logging.INFO)
 log_observer.start()
 
 """Google custom search API query parameters
@@ -59,7 +59,6 @@ settings.overrides['RANDOMIZE_DOWNLOAD_DELAY'] = True
 settings.overrides['DOWNLOAD_DELAY'] = 2
 settings.overrides['CONCURRENT_REQUESTS_PER_DOMAIN'] = 8
 settings.overrides['USER_AGENT'] = 'scrapy_bot/0.1 Scrapy/0.15'
-#settings.overrides['SPIDER_MIDDLEWARES'] = {'scrapy.contrib.spidermiddleware.httperror.HttpErrorMiddleware':1}
 
 class GoogleSpider(BaseSpider):
     """
@@ -83,7 +82,6 @@ class GoogleSpider(BaseSpider):
     hashes = None           # set of url hashes
     pickle_fd = None        # pickled hashes variable
     reset = False           # used to restart spider crawl
-    error_resp = 0           # number of errorneous responses from google before shutdown
     api_key = None
     search_id = None
     handle_httpstatus_list = [400, 401, 403, 404, 405, 413, 500]
@@ -107,11 +105,8 @@ class GoogleSpider(BaseSpider):
             raise Exception("API Key and search engine ID must be defined")
         try:
             self.date_file = open('%s/%s' %(FOLDER, 'google_date'), 'a+b')
-#            self.last_search = int(self.date_file[self.date_file.keys()[0]].readline().strip())
             self.dates = pickle.load(self.date_file)
             self.last_search = self.dates['search']
-#            print self.dates
-#            print "\n\n\n", self.last_search, self.dates['search'], "\n"
         except (IOError, EOFError, pickle.UnpicklingError):
             self.date_file= open('%s/%s' %(FOLDER, 'google_date'), 'a+b')
             self.last_search = 0
@@ -132,7 +127,6 @@ class GoogleSpider(BaseSpider):
                 self.dates['pickle'] = datetime.now()
 
         print self.dates['pickle'], self.dates['search']
-#        raise Exception
         try:
             self.hashes = pickle.load(self.pickle_fd)
         except (pickle.UnpicklingError, EOFError):
@@ -215,7 +209,7 @@ class GoogleSpider(BaseSpider):
             elif response.status == 500:
                 print 'Server error'
             print 'For more information: https://developers.google.com/custom-search/docs/api#status_code'
-            raise CloseSpider('Too many error responses')
+            raise CloseSpider('Error response returned')
 
         res = json.loads(response.body)
         res_num = int(res['searchInformation']['totalResults'])
@@ -259,34 +253,6 @@ class GoogleSpider(BaseSpider):
         req_url = urlparse.urljoin(base, 'customsearch/v1')
         req_url += '?' + req_params
         return req_url
-
-#    def filter_result(self, link):
-#    """ Filters Google related domains
-
-#    Originally used to filter urls when using Google web interface, obsolete when
-#    using API
-#    """
-#        try:
-#            # Valid results are absolute URLs not pointing to a Google domain
-#            # like images.google.com or googleusercontent.com
-#            o = urlparse.urlparse(link, 'http')
-#            if o.netloc and 'google' not in o.netloc:
-#                return link
-
-#            # Decode hidden URLs.
-#            if link.startswith('/url?'):
-#                link = urlparse.parse_qs(o.query)['q'][0]
-
-#            # Valid results are absolute URLs not pointing to a Google domain
-#            # like images.google.com or googleusercontent.com
-#            o = urlparse.urlparse(link, 'http')
-#            if o.netloc and 'google' not in o.netloc:
-#                return link
-
-#        # Otherwise, or on error, return None.
-#        except Exception:
-#            pass
-#        return None
 
 #    def dateFromString(self, in_str):
 #        """ Date converter

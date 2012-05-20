@@ -72,9 +72,6 @@ settings.overrides['USER_AGENT'] = 'scrapy_bot/0.1 Scrapy/0.15'
 settings.overrides['RANDOMIZE_DOWNLOAD_DELAY'] = True
 settings.overrides['DOWNLOAD_DELAY'] = 3
 settings.overrides['CONCURRENT_REQUESTS_PER_DOMAIN'] = 2
-#settings.overrides['LOG_ENABLED'] = False
-#settings.overrides['LOG_FILE'] = 'bugzilla.log'
-#settings.overrides['LOG_LEVEL'] = 'INFO'
 
 class BugzillaSpider(BaseSpider):
     """
@@ -100,7 +97,6 @@ class BugzillaSpider(BaseSpider):
     hashes = None           # set of hashed links
     item_file = None        # file containing extracted URLs
     reset = False           # used to restarts the spider to the current date
-    error_resp = 0           # maximum number of error responses before shutdown
 
     def __init__(self, *args, **kwargs):
         """Class constructor
@@ -205,7 +201,7 @@ class BugzillaSpider(BaseSpider):
         qparams['content'] = query
 #        qparams['bug_status'] = ['__open__']
         qparams['columnlist'] = ['changeddate']
-        qparams['chfieldto'] = fieldto.strftime('%Y-%m-%d') #'YYYY-MM-DD'
+        qparams['chfieldto'] = fieldto.strftime('%Y-%m-%d')
         qparams['chfieldfrom'] = fieldfrom.strftime('%Y-%m-%d')
 #        if base is start_redhat:
 #            qparams['short_desc_type'] = 'anywords'
@@ -223,12 +219,6 @@ class BugzillaSpider(BaseSpider):
         are not necessary, but may bye used if needed in which case they also must be 
         added in items.py file.
         """
-        if (response.status >= 400):
-            self.error_resp += 1
-            print "Page not found"
-            if self.error_resp > 10:
-                raise CloseSpider('Too many error responses')
-            return None
         hxs = HtmlXPathSelector(response)
         link_base = response.url.split('buglist', 1)[0]
         domain = link_base.split('.')[1]
