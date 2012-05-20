@@ -25,29 +25,40 @@ except OSError, e:
 
 logfile = open('%s/bugzilla.log' %FOLDER, 'a+b')
 # for debugging set level to DEBUG other values INFO, WARNING, ERROR, CRITICAL
-log_observer = ScrapyFileLogObserver(logfile, level=logging.DEBUG)
+log_observer = ScrapyFileLogObserver(logfile, level=logging.INFO)
 log_observer.start()
 
+"""
+short_desc_type: 'Summary' field, possible options: allwordssubstr, anywordssubstr, substring, casesubstring,
+                allwords, anywords, regexp, notregexp
+short_dest: query put in 'Summary' field
+longdesc_type: 'A Comment Matches' field, possible options: same as above
+longdesc: query put in 'A Comment Matches' field
+bug_status: bug status, also __open__, __closed__ possible
+columnlist: Returned columns
+chfieldfrom: Search start date, format YYYY-MM-DD
+chfieldto: Search end date
+order: Order of returned results, options: 'Importance', 'Assignee', ,'Bug Number'
+"""
 URL_PARAMS = {
     'query_format': 'advanced',
-    'short_desc_type': '',
+    'short_desc_type': 'anywords',
 	'short_desc': '',
-	'long_desc_type': 'anywords',
-	'long_desc' : '',
+	'longdesc_type': 'anywords',
+	'longdesc' : '',
+	'bug_status': ['NEW', 'ASSIGNED', 'REOPENED', 'NEEDINFO', 'RESOLVED','VERIFIED','CLOSED'],
+    'columnlist':['bug_severity', 'priority', 'op_sys', 'assigned_to', 'bug_status', 'resolution', 'short_desc', 'changeddate'],
+	'chfieldfrom':'',
+	'chfieldto':'Now',
+	'order': 'Bug Number',
 #	'bug_file_loc_type': 'allwordssubstr',
 #	'bug_file_loc': '',
-#	'bug_status': ['NEW', 'ASSIGNED', 'REOPENED', 'NEEDINFO', 'CONFIRMED', 'IN_PROGRESS'],
-    'bug_status':['__open__', '__closed__'],
+#   'bug_status':['__open__', '__closed__'],
 #	'bug_severity': ['unspecified', 'urgent', 'high', 'medium', 'low'],
 #	'priority': ['unspecified', 'urgent', 'high', 'medium', 'low'],
 #	'bugidtype':'include',
 #	'bug_id':'',
-    'columnlist':['bug_severity', 'priority', 'op_sys', 'assigned_to', 'bug_status', 'resolution', 'short_desc', 'changeddate'],
-	'content':'',
-	'chfieldfrom':'', # search from date, format YYYY-MM-DD
-	'chfieldto':'Now', # search to date
-	'chfieldvalue':'',
-	'order': 'Bug Number', #other options: 'Importance', 'Assignee', ,'Bug Number'
+#	'chfieldvalue':'',
 	}
 start_novell = "https://bugzilla.novell.com/"
 start_redhat = "https://bugzilla.redhat.com/"
@@ -192,12 +203,12 @@ class BugzillaSpider(BaseSpider):
         qparams['short_desc'] = query
         qparams['long_desc'] = query
         qparams['content'] = query
-        qparams['bug_status'] = ['__open__']
+#        qparams['bug_status'] = ['__open__']
         qparams['columnlist'] = ['changeddate']
         qparams['chfieldto'] = fieldto.strftime('%Y-%m-%d') #'YYYY-MM-DD'
         qparams['chfieldfrom'] = fieldfrom.strftime('%Y-%m-%d')
-        if base is start_redhat:
-            qparams['short_desc_type'] = 'anywords'
+#        if base is start_redhat:
+#            qparams['short_desc_type'] = 'anywords'
         req_params = urlencode(qparams, True)
         req_url = urljoin(base, 'buglist.cgi')
         req_url += '?' + req_params
@@ -247,6 +258,7 @@ class BugzillaSpider(BaseSpider):
                 self.item_file.write('%s\n' %item['url'])
         return items
 
+# Unused code, parsedatetime must be installed
 #    def dateFromString(self, in_str):
 #        """ Date converter
 
