@@ -9,6 +9,7 @@ import ConfigParser
 import errno
 
 done = False
+run_now = False
 STATS_STR = {'NEW DB ENTRIES':'new_entries', 'SUCCESSFUL MATCH':'found_match', 'FAILED REGEX':'failed_match',
             'FAILED DOWNLOAD':'failed_download', 'ALL URLs':'all_urls'}
 STATS = {'new_entries':[], 'found_match':[], 'failed_match':[], 'failed_download':[], 'all_urls':[]}
@@ -107,8 +108,11 @@ def print_stats():
 
 def handler(signum, frame):
     global done
+    global run_now
     if (signum == signal.SIGUSR1):
         print_stats()
+    elif (signum == signal.SIGUSR2):
+        run_now = True
     else:
         print "Program finished"
         done = 1
@@ -120,6 +124,7 @@ def reg_signals():
     signal.signal(signal.SIGTERM, handler)
     signal.signal(signal.SIGQUIT, handler)
     signal.signal(signal.SIGUSR1, handler)
+    signal.signal(signal.SIGUSR2, handler)
 
 def run_parser(spider, db, user):
     s = None
@@ -213,8 +218,9 @@ if __name__ == "__main__":
             print 'Search reset'
         else:
             opts['reset'] = False
-#        if strftime('%H') == hrs and strftime('%M') == mins:
-        if datetime.now().replace(second=0, microsecond=0) == usr_time.replace(second=0):
+
+        if run_now or (datetime.now().replace(second=0, microsecond=0) == usr_time.replace(second=0)):
+            run_now = False
             run_start = datetime.now()
             print "process started: %s" %run_start
             run_process(opts)
