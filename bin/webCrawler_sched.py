@@ -15,8 +15,8 @@ STATS = {'new_entries':[], 'found_match':[], 'failed_match':[], 'failed_download
 STAT_FILE = 'webcrawler_run_stats'
 START_DATE = date.today()
 DAY = timedelta(days=1)
-SCRAPY = 'scrapy'
-#DAY = timedelta(seconds=120)
+SCRAPY = 'scrapy' # command to run scrapy, if Scrapy was not installed from repositories,
+                  # add whole path to 'scrapy' script, located in Scrapy/build
 
 def parse_argv():
     opts = {'user':'jozefceluch', 'hour':None, 'minute':'00', 'reset':None, 'db':None,
@@ -235,6 +235,12 @@ if __name__ == "__main__":
             sleep((sleep_time.microseconds + (sleep_time.seconds + sleep_time.days * 24 * 3600) * 10**6) / 10**6)
 
 #def run_spider(spider, options):
+#    """ Unused method to run spider
+#        Method to run spider through scrapyd daemon. This is not used by default
+#        because all spiders run in local folder and are not managed by the daemon.
+#        Should be usable with minor updates.
+#
+#    """
 #    url = 'http://%s:%s/schedule.json' %(options['server'], options['port'])
 #    proj = 'project=%s' %options['project']
 #    spid = 'spider=%s' %spider
@@ -260,6 +266,8 @@ if __name__ == "__main__":
 #        print "Spider did not start successfully"
 
 #def get_items(opts, job_id):
+#    """ Unused method to retrieve items from spider
+#    """
 #    url = 'http://%s:%s/listjobs.json?project=%s' %(opts['server'], opts['port'], opts['project'])
 #    done = False
 #    spider_name = None
