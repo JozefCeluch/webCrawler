@@ -44,31 +44,11 @@ int match_regex(char *string, pcre *re, int **ovector)
 	*ovector, /* output vector for substring information */
 	OVECCOUNT); /* number of elements in the output vector */
 
-	/* move this out of this function */
-//		if (rc < 0) {
-//			switch (rc) {
-//			case PCRE_ERROR_NOMATCH:
-//				fprintf(stderr, "No match\n");
-//				break;
-//			case PCRE_ERROR_NOMEMORY:
-//				fprintf(stderr, "Offset vector too small\n");
-//				break;
-//			case PCRE_ERROR_PARTIAL:
-//				fprintf(stderr ,"Only partial match found\n");
-//				break;
-//			default:
-//				fprintf(stderr, "Matching error %d\n", rc);
-//				break;
-//			}
-//		}
 	return rc;
 }
 
 int convert_html(struct htmlData *chunk, htmlParserCtxtPtr *parser)
 {
-//	htmlParserCtxtPtr
-//	*parser = htmlCreatePushParserCtxt(NULL, NULL, NULL, 0, NULL, 0);
-
 	htmlCtxtUseOptions(*parser, HTML_PARSE_NOBLANKS | HTML_PARSE_NOERROR
 			| HTML_PARSE_NOWARNING | HTML_PARSE_NONET);
 
@@ -90,7 +70,6 @@ int parse_xml(xmlNodePtr root_node, struct parsingData *parse)
 	fprintf(stderr, "Parsing url\n");
 	while (cur_node != NULL) {
 		if (process) {
-			/* to check only "pre" elements add '&& !strcmp((char *) cur_node->name, "pre")'*/
 			if (cur_node->name ) {
 				if (cur_node->children) {
 					key = xmlNodeListGetString(
@@ -155,7 +134,6 @@ int bug_warning_match(char* string, struct parsingData *data)
 	int *ovector1;
 	int *ovector2;
 	int ret_val = -1; // default value, meaning nothing was found
-	//	int i = 0;
 	ovector1 = malloc(sizeof(int) * OVECCOUNT);
 	ovector2 = malloc(sizeof(int) * OVECCOUNT);
 
@@ -164,7 +142,6 @@ int bug_warning_match(char* string, struct parsingData *data)
 
 	if (res1 > 0 && res2 > 0) { // both regular expressions found something
 		ret_val = print_regex_result(string, res1, ovector1, res2, ovector2, data);
-//		result = res1 + res2;
 	}
 
 	free(ovector1);

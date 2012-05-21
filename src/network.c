@@ -23,21 +23,6 @@ size_t write_call_back(void *ptr, size_t size, size_t nmemb, void *data)
 	return real_size;
 }
 
-//size_t header_call_back(void *ptr, size_t size, size_t nmemb, void *data)
-//{
-//	int real_size = size * nmemb;
-//	struct htmlData *memory = (struct htmlData *) data;
-//
-//	memory->data = (char *) realloc(memory->data, memory->size + real_size
-//			+ 1);
-//	if (memory->data) {
-//		memcpy(&(memory->data[memory->size]), ptr, real_size);
-//		memory->size += real_size;
-//		memory->data[memory->size] = '\0';
-//	}
-//	return real_size;
-//}
-
 int initialize_curl(CURL *curl, char* url, struct htmlData* chunk,
 		char* error_buffer, char* post)
 {

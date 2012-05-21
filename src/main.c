@@ -29,195 +29,6 @@ void sig_prep()
 	sigaction(SIGTERM, &quit, NULL);
 }
 
-/*
-	Searches for *name in *in_str and copies the value associated to that name
-	to **ret_value.
-	Original input string is left intact.
-*/
-int get_list_value(char *in_list, char* name, char **ret_value)
-{
-	char *str, *subtoken, *saveptr;
-	char *begin_q=NULL, *end_q=NULL, *loc=NULL;
-	char name_q[strlen(name) + 3];
-	int copied = 0;
-	int len;
-	char *list = NULL;
-	if (in_list == NULL || name == NULL) {
-		return -1;
-	}
-	list = strdup(in_list);
-	if (list == NULL){
-		fprintf(stderr, "strdup() failed\n");
-		return -1;
-	}
-	if (list[0] == '{') memmove(list, list+1, strlen(list));
-
-	sprintf(name_q, "\"%s\"", name);
-	for (str = list;; str = NULL) {
-		subtoken = strtok_r(str, ",", &saveptr);
-		if (subtoken == NULL || copied)
-			break;
-		if ((loc = strstr(subtoken, name_q))) {
-			begin_q = strchr(&loc[strlen(name_q)+1], '\"');
-			end_q = strrchr(subtoken, '\"');
-			len = end_q - begin_q-1;
-			printf("length %d\n", len);
-			if (len > 0) {
-				*ret_value = strndup(begin_q+1, len);
-				copied = 1;
-			}
-		}
-	}
-	free(list);
-	printf("Split list finished\n");
-	if (!copied)
-		return -1;
-	return 0;
-};
-
-int get_sublist(char *in_list, char* name, char **ret_value)
-{
-	char *str;
-	char *begin_sub = NULL, *end_sub = NULL;
-	char *next_comma = NULL;
-	char name_q[strlen(name) + 3];
-	int copied = 0;
-	int len;
-	char *list = NULL;
-
-	if (in_list == NULL || name == NULL) {
-		return -1;
-	}
-
-	list = strdup(in_list);
-	if (list == NULL){
-		fprintf(stderr, "strdup() failed\n");
-		return -1;
-	}
-	if (list[0] == '{') memmove(list, list+1, strlen(list));
-
-	sprintf(name_q, "\"%s\"", name);
-	str = strstr(list, name_q);
-	if (str) {
-		begin_sub = strchr(&str[strlen(name_q)+1], '[');
-		end_sub = strchr(begin_sub, ']');
-		next_comma = strchr(&str[strlen(name_q)+1], ',');
-	}
-
-	if ((begin_sub != NULL) && (end_sub != NULL) && (next_comma == NULL || begin_sub < next_comma)){
-		len = end_sub - begin_sub;
-		*ret_value = strndup(begin_sub, len+1);
-		copied = 1;
-	}
-	free(list);
-	if (!copied)
-		return -1;
-	return 0;
-}
-
-//TODO FIX!!!!!
-int scrapy_get_urls(char *jobID, FILE *fd)
-{
-	CURL *curl = NULL;
-	char error_buffer[CURL_ERROR_SIZE];
-	struct htmlData chunk;
-//	struct htmlData a;
-	char *url_jobs = "http://localhost:6800/listjobs.json?project=tutorial";
-	//char *url_base = "http://localhost:6800/items/tutorial/%s/%s.jl";
-	char url_items[URL_SIZE];
-	char *spider_name = NULL;
-	char *sublist = NULL;
-	char *pos = NULL;
-	int done = 0;
-	/*
-	 * this part checks every 5 seconds if passed jobID is already among
-	 * finished jobs, if yes get spider_name associated with that job, else
-	 * sleep 5 and try again{"url": "http://codemonkey.org.uk/2012/02/17/fedora-16-kernel-bugzilla-status-report-20120210-20120217/", "date": null, "length": 94, "num": 77}
-	 */
-	while (!done) {
-		chunk.page = NULL;
-		chunk.size = 0;
-		if (initialize_curl(&curl, url_jobs, &chunk, error_buffer, NULL) < 0)
-			fprintf(stderr, "CURL error\n");
-		if (get_sublist(chunk.page, "finished", &sublist) < 0) {
-			fprintf(stderr, "Error, scrapyd response: %s\n", chunk.page);
-		} else {
-
-			if ((pos = strstr(sublist, jobID))) {
-				get_list_value(pos, "spider", &spider_name);
-				done = 1;
-			} else {
-				printf("Sleep for 5 seconds\n");
-				sleep(5);
-			}
-		}
-//		if ((get_list_value(chunk.page, "finished", jobID, &spider_name)) < 0){
-//			//sleep(5);
-//		} else {
-//			//break;
-//		}
-		free(sublist);
-		free(chunk.page);
-		chunk.page = NULL;
-		chunk.size = 0;
-	}
-	curl = NULL;
-	/*
-	 * this part completes the request url for spider job file with jobID
-	 * and then it returns the page
-	 */
-	sprintf(url_items, "http://localhost:6800/items/tutorial/%s/%s.jl", spider_name, jobID);
-	free(spider_name);
-	printf("%s\n", url_items);
-
-	if (initialize_curl(&curl, url_items, &chunk, error_buffer, NULL) < 0){
-		free(chunk.page);
-		return -1;
-	} else {
-		fwrite(chunk.page, sizeof(char), chunk.size, fd);
-		free(chunk.page);
-		return 0;
-	}
-
-}
-
-void scrapy_run_spider(char *name, char **jobID)
-{
-	CURL *curl = NULL;
-	char error_buffer[CURL_ERROR_SIZE];
-	struct htmlData chunk;
-	char *url_base = "http://localhost:6800/schedule.json";
-	char data[URL_SIZE];
-	char *status = NULL;
-	char *id = NULL;
-
-	sprintf(data, "project=tutorial&spider=%s", name);
-	printf("%s\n", data);
-	chunk.page = NULL;
-	chunk.size = 0;
-	initialize_curl(&curl, url_base, &chunk, error_buffer, data);
-	printf("data : %s\n", chunk.page);
-
-	if (get_list_value(chunk.page, "status", &status) < 0){
-		fprintf(stderr, "scrapyd response: %s\n", chunk.page);
-
-	}
-	if (get_list_value(chunk.page, "jobid", &id) < 0){
-		fprintf(stderr, "jobID not found\n");
-	}
-
-	if (jobID && id) {
-		strcpy(*jobID, id);
-	} else {
-		*jobID = NULL;
-	}
-
-	free(id);
-	free(status);
-	free(chunk.page);
-
-}
-
 char *read_file(FILE *url_file)
 {
 	char *line = NULL;
@@ -228,10 +39,7 @@ char *read_file(FILE *url_file)
 		free(line);
 		return NULL;
 	} else {
-//		get_list_value(line, "url", &url);
-//		printf("%d\n", read);
 		url[read - 1] = '\0';
-//		printf("opened\n");
 		free(line);
 		return url;
 	}
@@ -296,27 +104,10 @@ int main(int argc, char *argv[])
 	compile_regex(&data.re_path, regex_path);
 	sig_prep();
 
-	//TODO add arguments parsing, usage print,
-	//	if (argc == 2) {
-	//		file_name = argv[1];
-	//	} else {
-	//		file_name = "bnc-bug-at.txt";
-	//	}
-	//
 	fd = fopen(file_name, "rb");
 	if (fd == NULL) {
 		die("Error, opening file");
 	}
-
-//	scrapy_run_spider("bugzilla", &spider_id);
-//	printf("%s : length = %d\n", spider_id, strlen(spider_id));
-//	char *ast = "{\"url\": \"http://www.at91.com/forum/viewtopic.php/f,12/t,20179/\", \"date\": null, \"length\": 53, \"num\": 78}";
-//	char *a = NULL;
-//	get_list_value(ast, "url", &a);
-//	return 0;
-//	scrapy_get_urls(spider_id, fd);
-
-	//free(spider_id); //somewhere later
 
 	download_failed = fopen("failed_download_urls", "a+");
 	if (download_failed == NULL) {
@@ -335,7 +126,6 @@ int main(int argc, char *argv[])
 		chunk.page = NULL;
 		chunk.size = 0;
 		++url_count;
-//				data.database.url = "https://bugzilla.novell.com/show_bug.cgi?id=648118";
 		fprintf(stderr,"%d. Fetching %s\n", url_count, data.database.url);
 		match_count = 0;
 
@@ -383,7 +173,6 @@ int main(int argc, char *argv[])
 	pcre_free(data.re_pid);
 	pcre_free(data.re_path);
 
-//	printf("FINISHED\n");
 	printf("NEW DB ENTRIES:\t\t%d\n", success_db_insert);
 	printf("SUCCESSFUL MATCH:\t%d\n", success_regex_count);
 	printf("FAILED REGEX:\t\t%d\n", failed_regex_count);
@@ -391,3 +180,200 @@ int main(int argc, char *argv[])
 	printf("ALL URLs:\t\t%d\n", url_count);
 	exit(EXIT_SUCCESS);
 }
+
+
+/*
+ * Unused part, originally it was supposed to communicate with scrapyd daemon ,
+ * but it ended up not being used, might be useful sometime in the future.
+ */
+///*
+//	Searches for *name in *in_str and copies the value associated to that name
+//	to **ret_value.
+//	Original input string is left intact.
+//*/
+//int get_list_value(char *in_list, char* name, char **ret_value)
+//{
+//	char *str, *subtoken, *saveptr;
+//	char *begin_q=NULL, *end_q=NULL, *loc=NULL;
+//	char name_q[strlen(name) + 3];
+//	int copied = 0;
+//	int len;
+//	char *list = NULL;
+//	if (in_list == NULL || name == NULL) {
+//		return -1;
+//	}
+//	list = strdup(in_list);
+//	if (list == NULL){
+//		fprintf(stderr, "strdup() failed\n");
+//		return -1;
+//	}
+//	if (list[0] == '{') memmove(list, list+1, strlen(list));
+//
+//	sprintf(name_q, "\"%s\"", name);
+//	for (str = list;; str = NULL) {
+//		subtoken = strtok_r(str, ",", &saveptr);
+//		if (subtoken == NULL || copied)
+//			break;
+//		if ((loc = strstr(subtoken, name_q))) {
+//			begin_q = strchr(&loc[strlen(name_q)+1], '\"');
+//			end_q = strrchr(subtoken, '\"');
+//			len = end_q - begin_q-1;
+//			printf("length %d\n", len);
+//			if (len > 0) {
+//				*ret_value = strndup(begin_q+1, len);
+//				copied = 1;
+//			}
+//		}
+//	}
+//	free(list);
+//	printf("Split list finished\n");
+//	if (!copied)
+//		return -1;
+//	return 0;
+//};
+//
+//
+//int get_sublist(char *in_list, char* name, char **ret_value)
+//{
+//	/*contains bug, doesn't work correctly if there is ',' in item strings */
+//
+//	char *str;
+//	char *begin_sub = NULL, *end_sub = NULL;
+//	char *next_comma = NULL;
+//	char name_q[strlen(name) + 3];
+//	int copied = 0;
+//	int len;
+//	char *list = NULL;
+//
+//	if (in_list == NULL || name == NULL) {
+//		return -1;
+//	}
+//
+//	list = strdup(in_list);
+//	if (list == NULL){
+//		fprintf(stderr, "strdup() failed\n");
+//		return -1;
+//	}
+//	if (list[0] == '{') memmove(list, list+1, strlen(list));
+//
+//	sprintf(name_q, "\"%s\"", name);
+//	str = strstr(list, name_q);
+//	if (str) {
+//		begin_sub = strchr(&str[strlen(name_q)+1], '[');
+//		end_sub = strchr(begin_sub, ']');
+//		next_comma = strchr(&str[strlen(name_q)+1], ',');
+//	}
+//
+//	if ((begin_sub != NULL) && (end_sub != NULL) && (next_comma == NULL || begin_sub < next_comma)){
+//		len = end_sub - begin_sub;
+//		*ret_value = strndup(begin_sub, len+1);
+//		copied = 1;
+//	}
+//	free(list);
+//	if (!copied)
+//		return -1;
+//	return 0;
+//}
+//
+//
+//int scrapy_get_urls(char *jobID, FILE *fd)
+//{
+//	CURL *curl = NULL;
+//	char error_buffer[CURL_ERROR_SIZE];
+//	struct htmlData chunk;
+////	struct htmlData a;
+//	char *url_jobs = "http://localhost:6800/listjobs.json?project=tutorial";
+//	//char *url_base = "http://localhost:6800/items/tutorial/%s/%s.jl";
+//	char url_items[URL_SIZE];
+//	char *spider_name = NULL;
+//	char *sublist = NULL;
+//	char *pos = NULL;
+//	int done = 0;
+//	/*
+//	 * this part checks every 5 seconds if passed jobID is already among
+//	 * finished jobs, if yes get spider_name associated with that job, else
+//	 * sleep 5 and try again{"url": "http://codemonkey.org.uk/2012/02/17/fedora-16-kernel-bugzilla-status-report-20120210-20120217/", "date": null, "length": 94, "num": 77}
+//	 */
+//	while (!done) {
+//		chunk.page = NULL;
+//		chunk.size = 0;
+//		if (initialize_curl(&curl, url_jobs, &chunk, error_buffer, NULL) < 0)
+//			fprintf(stderr, "CURL error\n");
+//		if (get_sublist(chunk.page, "finished", &sublist) < 0) {
+//			fprintf(stderr, "Error, scrapyd response: %s\n", chunk.page);
+//		} else {
+//
+//			if ((pos = strstr(sublist, jobID))) {
+//				get_list_value(pos, "spider", &spider_name);
+//				done = 1;
+//			} else {
+//				printf("Sleep for 5 seconds\n");
+//				sleep(5);
+//			}
+//		}
+////		if ((get_list_value(chunk.page, "finished", jobID, &spider_name)) < 0){
+////			//sleep(5);
+////		} else {
+////			//break;
+////		}
+//		free(sublist);
+//		free(chunk.page);
+//		chunk.page = NULL;
+//		chunk.size = 0;
+//	}
+//	curl = NULL;
+//	/*
+//	 * this part completes the request url for spider job file with jobID
+//	 * and then it returns the page
+//	 */
+//	sprintf(url_items, "http://localhost:6800/items/tutorial/%s/%s.jl", spider_name, jobID);
+//	free(spider_name);
+//	printf("%s\n", url_items);
+//
+//	if (initialize_curl(&curl, url_items, &chunk, error_buffer, NULL) < 0){
+//		free(chunk.page);
+//		return -1;
+//	} else {
+//		fwrite(chunk.page, sizeof(char), chunk.size, fd);
+//		free(chunk.page);
+//		return 0;
+//	}
+//
+//}
+//
+//void scrapy_run_spider(char *name, char **jobID)
+//{
+//	CURL *curl = NULL;
+//	char error_buffer[CURL_ERROR_SIZE];
+//	struct htmlData chunk;
+//	char *url_base = "http://localhost:6800/schedule.json";
+//	char data[URL_SIZE];
+//	char *status = NULL;
+//	char *id = NULL;
+//
+//	sprintf(data, "project=tutorial&spider=%s", name);
+//	printf("%s\n", data);
+//	chunk.page = NULL;
+//	chunk.size = 0;
+//	initialize_curl(&curl, url_base, &chunk, error_buffer, data);
+//	printf("data : %s\n", chunk.page);
+//
+//	if (get_list_value(chunk.page, "status", &status) < 0){
+//		fprintf(stderr, "scrapyd response: %s\n", chunk.page);
+//
+//	}
+//	if (get_list_value(chunk.page, "jobid", &id) < 0){
+//		fprintf(stderr, "jobID not found\n");
+//	}
+//
+//	if (jobID && id) {
+//		strcpy(*jobID, id);
+//	} else {
+//		*jobID = NULL;
+//	}
+//
+//	free(id);
+//	free(status);
+//	free(chunk.page);
+//
+//}

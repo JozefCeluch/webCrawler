@@ -1,6 +1,7 @@
 #include "database.h"
 
-int sql_init(struct sqlStmt *data, struct db *database, char *db_file){
+int sql_init(struct sqlStmt *data, struct db *database, char *db_file)
+{
 	const char *tail = 0;
 	int rc;
 	char *err_stmt =
@@ -22,15 +23,14 @@ int sql_init(struct sqlStmt *data, struct db *database, char *db_file){
 	database->tool_ver = TOOL_VERSION;
 	database->dest_proj = DEST_PROJECT;
 	database->error_type = ERR_TYPE;
-//	database->user = "jirislaby";
 	database->tool_id = get_id(data->db, "tool", "name", database->tool_name);
 	database->user_id = get_id(data->db, "user", "login", database->user);
 	database->error_type_id = get_id(data->db, "error_type", "name", database->error_type);
 	database->proj_id = get_id (data->db, "project", "name", database->dest_proj);
-	database->project_ver = NULL; //"2.6.31.12-0.2-xen";
-	database->loc_file = NULL; //"fs/inode.c";
-	database->loc_line = NULL; //"1323";
-	database->url = NULL; //"https://bugzilla.novell.com/show_bug.cgi?id=648118";
+	database->project_ver = NULL;
+	database->loc_file = NULL;
+	database->loc_line = NULL;
+	database->url = NULL;
 
 	rc = sqlite3_prepare_v2(data->db, err_stmt, -1, &data->sql_err, &tail);
 	if (rc != SQLITE_OK) {
@@ -63,7 +63,7 @@ int insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database){
 				database->proj_id, database->project_ver,
 				database->loc_file, database->loc_line, database->url);
 		if (rc != SQLITE_DONE) {
-			fprintf(stderr, "SQL insert error: %d: :%s\n", rc, sqlite3_errmsg(*db));
+			fprintf(stderr, "SQL insert error no. %d: %s\n", rc, sqlite3_errmsg(*db));
 			return -1; // error
 		}
 
@@ -76,7 +76,7 @@ int insert_to_db(sqlite3 **db, struct sqlStmt *data, struct db *database){
 
 		rc = insert_tool_rel(data->sql_rel, database->tool_id, rowid);
 		if (rc != SQLITE_DONE) {
-			fprintf(stderr, "SQL insert tool_rel error: %d: :%s\n", rc, sqlite3_errmsg(*db));
+			fprintf(stderr, "SQL insert tool_rel error no. %d: %s\n", rc, sqlite3_errmsg(*db));
 			return -1;
 		}
 
@@ -103,7 +103,7 @@ int get_id (sqlite3 *db, char *table, char *column, char* value)
 	rc = sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
 	free(query);
 	if (rc != SQLITE_OK) {
-		fprintf(stderr, "SQL error code: %d: %s\n", rc, sqlite3_errmsg(db));
+		fprintf(stderr, "SQL error code no. %d: %s\n", rc, sqlite3_errmsg(db));
 		sqlite3_finalize(stmt);
 		return id;
 	}
@@ -112,7 +112,7 @@ int get_id (sqlite3 *db, char *table, char *column, char* value)
 	if (rc == SQLITE_ROW) {
 		id = sqlite3_column_int(stmt, 0);
 	} else {
-		fprintf(stderr, "SQL error code: %d: %s\n", rc, sqlite3_errmsg(db));
+		fprintf(stderr, "SQL error code no. %d: %s\n", rc, sqlite3_errmsg(db));
 		fprintf(stderr, "%s not found in the database\n", column);
 	}
 	sqlite3_finalize(stmt);
